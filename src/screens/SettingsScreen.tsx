@@ -572,16 +572,14 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             {/* My Branches Section */}
             <View style={styles.card}>
               <View style={styles.cardHeaderRow}>
-                <View>
-                  <Text style={styles.cardTitle}>🏬 My Shops & Branches</Text>
-                  <Text style={styles.cardSubtitle}>
-                    Manage all your locations. Switch between branches anytime.
-                  </Text>
-                </View>
+                <Text style={styles.cardTitle}>🏬 My Shops & Branches</Text>
                 <TouchableOpacity style={styles.smallAddBtn} onPress={() => setNewBranchModalVisible(true)}>
                   <Text style={styles.smallAddBtnText}>+ Add Branch</Text>
                 </TouchableOpacity>
               </View>
+              <Text style={styles.cardSubtitle}>
+                Manage all your locations. Switch between branches anytime.
+              </Text>
 
               {shops.map((s) => {
                 const isActive = s.id === shop.id;
@@ -1331,12 +1329,17 @@ const styles = StyleSheet.create({
   },
   smallAddBtn: {
     backgroundColor: '#EFF6FF',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   smallAddBtnText: {
-    color: '#2563EB',
+    color: '#1D4ED8',
     fontWeight: '700',
     fontSize: 13,
   },
