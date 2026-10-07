@@ -923,7 +923,7 @@
         } catch(e) {}
       }
 
-      if (!currentSlug) currentSlug = 'chai-corner'; // fallback
+      if (!currentSlug) currentSlug = 'munna-bhai-coffee-shop-mpg4'; // fallback
 
       // Check URL search parameters (phone, cc)
       const urlParams = new URLSearchParams(window.location.search);
@@ -1078,9 +1078,16 @@
           })
         });
 
-        if (!res.ok) throw new Error('Network error');
+        let data = null;
+        try {
+          data = await res.json();
+        } catch (parseErr) {}
 
-        const data = await res.json();
+        if (!res.ok) {
+          const serverMsg = (data && (data.message || data.hint)) || (navigator.onLine ? 'Unable to load stamp card. Please try again.' : 'No internet connection. Please check your network.');
+          showError(serverMsg);
+          return;
+        }
 
         if (data.status === 'invalid_phone') {
           showError('Please check your mobile number format.');
@@ -1103,7 +1110,7 @@
           showError('Unable to load stamp card. Please try again.');
         }
       } catch (err) {
-        showError('No internet connection. Please check your network.');
+        showError(navigator.onLine ? 'Could not connect to server. Please try again.' : 'No internet connection. Please check your network.');
       } finally {
         submitBtn.disabled = false;
         btnText.textContent = '🔍 My Stamps & Rewards';

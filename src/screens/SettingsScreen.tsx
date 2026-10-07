@@ -74,6 +74,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   const [loading, setLoading] = useState<boolean>(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isEditingShopDetails, setIsEditingShopDetails] = useState<boolean>(false);
 
   // Modals
   const [privacyModalVisible, setPrivacyModalVisible] = useState<boolean>(false);
@@ -113,6 +114,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     setSelectedCountry(findCountryByDialCode(shop.default_country_code || '+971'));
     setSuccessMessage(null);
     setErrorMessage(null);
+    setIsEditingShopDetails(false);
   }, [shop]);
 
   // Customer page web link
@@ -184,6 +186,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           } else if (fbData) {
             onShopUpdated(fbData as Shop);
             setSuccessMessage('Shop details updated successfully!');
+            setIsEditingShopDetails(false);
           }
         } else {
           setErrorMessage(error.message || strings.common.error);
@@ -191,6 +194,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
       } else if (data) {
         onShopUpdated(data as Shop);
         setSuccessMessage('Shop details updated successfully!');
+        setIsEditingShopDetails(false);
       }
     } catch (err: any) {
       setErrorMessage(err?.message || strings.common.error);
@@ -389,102 +393,191 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         {/* -------------------------------------------------------- */}
         {activeTab === 'shop' && (
           <View>
-            {/* Edit Active Shop */}
+            {/* Active Shop Section */}
             <View style={styles.card}>
-              <Text style={styles.cardTitle}>🏪 Edit Shop Details</Text>
-
-              <Text style={styles.inputLabel}>Shop Name:</Text>
-              <TextInput
-                style={styles.input}
-                value={shopName}
-                onChangeText={setShopName}
-                placeholder="e.g. Chai Corner"
-                placeholderTextColor="#9CA3AF"
-                editable={!loading}
-              />
-
-              <Text style={styles.inputLabel}>Shop / Unit Number (Optional):</Text>
-              <TextInput
-                style={styles.input}
-                value={shopNumber}
-                onChangeText={setShopNumber}
-                placeholder="e.g. Shop #14, Ground Floor"
-                placeholderTextColor="#9CA3AF"
-                editable={!loading}
-              />
-
-              <Text style={styles.inputLabel}>Shop Contact Phone (Optional):</Text>
-              <TextInput
-                style={styles.input}
-                value={shopPhone}
-                onChangeText={setShopPhone}
-                placeholder="e.g. +971 50 123 4567"
-                placeholderTextColor="#9CA3AF"
-                keyboardType="phone-pad"
-                editable={!loading}
-              />
-
-              {/* Location on Google Maps */}
-              <Text style={styles.inputLabel}>Shop Location (Real Google Map):</Text>
-              <GoogleMapPicker
-                initialAddress={shopAddress}
-                initialLatitude={shopLatitude}
-                initialLongitude={shopLongitude}
-                onLocationSelect={(data) => {
-                  setShopAddress(data.address);
-                  setShopLatitude(data.latitude);
-                  setShopLongitude(data.longitude);
-                  setShopGoogleMapsUrl(data.googleMapsUrl);
-                }}
-              />
-
-              <Text style={styles.inputLabel}>Stamps Required for Reward:</Text>
-              <View style={styles.stepperContainer}>
-                <TouchableOpacity
-                  style={[styles.stepperButton, stampsRequired <= APP_CONFIG.MIN_STAMPS && styles.stepperButtonDisabled]}
-                  onPress={() => setStampsRequired((prev) => Math.max(APP_CONFIG.MIN_STAMPS, prev - 1))}
-                  disabled={loading || stampsRequired <= APP_CONFIG.MIN_STAMPS}
-                >
-                  <Text style={styles.stepperButtonText}>-</Text>
-                </TouchableOpacity>
-
-                <View style={styles.stepperValueContainer}>
-                  <Text style={styles.stepperValue}>{stampsRequired}</Text>
-                  <Text style={styles.stepperValueLabel}>stamps = reward</Text>
+              <View style={styles.shopOverviewHeader}>
+                <View style={{ flex: 1 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <Text style={styles.shopOverviewTitle}>{shop.name}</Text>
+                    <View style={styles.activeBadge}>
+                      <Text style={styles.activeBadgeText}>✓ Active Shop</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.shopItemSlug}>URL Slug: /{shop.slug}</Text>
                 </View>
 
-                <TouchableOpacity
-                  style={[styles.stepperButton, stampsRequired >= APP_CONFIG.MAX_STAMPS && styles.stepperButtonDisabled]}
-                  onPress={() => setStampsRequired((prev) => Math.min(APP_CONFIG.MAX_STAMPS, prev + 1))}
-                  disabled={loading || stampsRequired >= APP_CONFIG.MAX_STAMPS}
-                >
-                  <Text style={styles.stepperButtonText}>+</Text>
-                </TouchableOpacity>
+                {!isEditingShopDetails && (
+                  <TouchableOpacity
+                    style={styles.editShopBtn}
+                    onPress={() => setIsEditingShopDetails(true)}
+                  >
+                    <Text style={styles.editShopBtnText}>✏️ Edit Details</Text>
+                  </TouchableOpacity>
+                )}
               </View>
 
-              <Text style={styles.inputLabel}>Reward Description:</Text>
-              <TextInput
-                style={styles.input}
-                value={rewardText}
-                onChangeText={setRewardText}
-                placeholder="e.g. Free karak chai or coffee"
-                placeholderTextColor="#9CA3AF"
-                editable={!loading}
-              />
+              {!isEditingShopDetails ? (
+                /* Collapsed / Clean Shop Overview */
+                <View style={styles.shopOverviewDetails}>
+                  <View style={styles.overviewRow}>
+                    <Text style={styles.overviewLabel}>🏢 Unit / Shop #:</Text>
+                    <Text style={styles.overviewValue}>{shop.shop_number || 'Not specified'}</Text>
+                  </View>
 
-              <TouchableOpacity
-                style={[styles.primaryButton, loading && styles.buttonDisabled]}
-                onPress={handleSaveShopDetails}
-                disabled={loading}
-              >
-                {loading ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={styles.primaryButtonText}>Save Changes</Text>}
-              </TouchableOpacity>
+                  <View style={styles.overviewRow}>
+                    <Text style={styles.overviewLabel}>📞 Contact Phone:</Text>
+                    <Text style={styles.overviewValue}>{shop.phone || 'Not specified'}</Text>
+                  </View>
+
+                  <View style={styles.overviewRow}>
+                    <Text style={styles.overviewLabel}>📍 Location:</Text>
+                    <View style={{ flex: 1, alignItems: 'flex-end' }}>
+                      <Text style={styles.overviewValue}>{shop.address || 'Address not configured'}</Text>
+                      {shop.google_maps_url ? (
+                        <TouchableOpacity
+                          style={{ marginTop: 4 }}
+                          onPress={() => Linking.openURL(shop.google_maps_url!)}
+                        >
+                          <Text style={styles.overviewMapLink}>View on Google Maps ↗</Text>
+                        </TouchableOpacity>
+                      ) : null}
+                    </View>
+                  </View>
+
+                  <View style={styles.overviewRow}>
+                    <Text style={styles.overviewLabel}>🎯 Reward Rule:</Text>
+                    <Text style={styles.overviewValue}>
+                      {shop.stamps_required} stamps = {shop.reward_text}
+                    </Text>
+                  </View>
+                </View>
+              ) : (
+                /* Expanded Edit Form (Only visible when Edit is pressed) */
+                <View style={{ marginTop: 12 }}>
+                  <Text style={styles.cardSubtitle}>
+                    Update your shop profile and location. Customers will see these details on their digital card.
+                  </Text>
+
+                  <Text style={styles.inputLabel}>Shop Name:</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={shopName}
+                    onChangeText={setShopName}
+                    placeholder="e.g. Chai Corner"
+                    placeholderTextColor="#9CA3AF"
+                    editable={!loading}
+                  />
+
+                  <Text style={styles.inputLabel}>Shop / Unit Number (Optional):</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={shopNumber}
+                    onChangeText={setShopNumber}
+                    placeholder="e.g. Shop #14, Ground Floor"
+                    placeholderTextColor="#9CA3AF"
+                    editable={!loading}
+                  />
+
+                  <Text style={styles.inputLabel}>Shop Contact Phone (Optional):</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={shopPhone}
+                    onChangeText={setShopPhone}
+                    placeholder="e.g. +971 50 123 4567"
+                    placeholderTextColor="#9CA3AF"
+                    keyboardType="phone-pad"
+                    editable={!loading}
+                  />
+
+                  {/* Location on Google Maps */}
+                  <Text style={styles.inputLabel}>Shop Location (Real Google Map):</Text>
+                  <GoogleMapPicker
+                    initialAddress={shopAddress}
+                    initialLatitude={shopLatitude}
+                    initialLongitude={shopLongitude}
+                    onLocationSelect={(data) => {
+                      setShopAddress(data.address);
+                      setShopLatitude(data.latitude);
+                      setShopLongitude(data.longitude);
+                      setShopGoogleMapsUrl(data.googleMapsUrl);
+                    }}
+                  />
+
+                  <Text style={styles.inputLabel}>Stamps Required for Reward:</Text>
+                  <View style={styles.stepperContainer}>
+                    <TouchableOpacity
+                      style={[styles.stepperButton, stampsRequired <= APP_CONFIG.MIN_STAMPS && styles.stepperButtonDisabled]}
+                      onPress={() => setStampsRequired((prev) => Math.max(APP_CONFIG.MIN_STAMPS, prev - 1))}
+                      disabled={loading || stampsRequired <= APP_CONFIG.MIN_STAMPS}
+                    >
+                      <Text style={styles.stepperButtonText}>-</Text>
+                    </TouchableOpacity>
+
+                    <View style={styles.stepperValueContainer}>
+                      <Text style={styles.stepperValue}>{stampsRequired}</Text>
+                      <Text style={styles.stepperValueLabel}>stamps = reward</Text>
+                    </View>
+
+                    <TouchableOpacity
+                      style={[styles.stepperButton, stampsRequired >= APP_CONFIG.MAX_STAMPS && styles.stepperButtonDisabled]}
+                      onPress={() => setStampsRequired((prev) => Math.min(APP_CONFIG.MAX_STAMPS, prev + 1))}
+                      disabled={loading || stampsRequired >= APP_CONFIG.MAX_STAMPS}
+                    >
+                      <Text style={styles.stepperButtonText}>+</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  <Text style={styles.inputLabel}>Reward Description:</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={rewardText}
+                    onChangeText={setRewardText}
+                    placeholder="e.g. Free karak chai or coffee"
+                    placeholderTextColor="#9CA3AF"
+                    editable={!loading}
+                  />
+
+                  <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
+                    <TouchableOpacity
+                      style={[styles.primaryButton, { flex: 1, marginTop: 0 }, loading && styles.buttonDisabled]}
+                      onPress={handleSaveShopDetails}
+                      disabled={loading}
+                    >
+                      {loading ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={styles.primaryButtonText}>Save Changes</Text>}
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[styles.outlineButton, { flex: 0.7, marginTop: 0 }]}
+                      onPress={() => {
+                        setIsEditingShopDetails(false);
+                        setShopName(shop.name);
+                        setShopNumber(shop.shop_number || '');
+                        setShopPhone(shop.phone || '');
+                        setShopAddress(shop.address || '');
+                        setShopLatitude(shop.latitude || null);
+                        setShopLongitude(shop.longitude || null);
+                        setShopGoogleMapsUrl(shop.google_maps_url || null);
+                        setStampsRequired(shop.stamps_required);
+                        setRewardText(shop.reward_text);
+                      }}
+                      disabled={loading}
+                    >
+                      <Text style={styles.outlineButtonText}>Cancel</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
             </View>
 
-            {/* My Branches */}
+            {/* My Branches Section */}
             <View style={styles.card}>
               <View style={styles.cardHeaderRow}>
-                <Text style={styles.cardTitle}>🏬 My Shops & Branches</Text>
+                <View>
+                  <Text style={styles.cardTitle}>🏬 My Shops & Branches</Text>
+                  <Text style={styles.cardSubtitle}>
+                    Manage all your locations. Switch between branches anytime.
+                  </Text>
+                </View>
                 <TouchableOpacity style={styles.smallAddBtn} onPress={() => setNewBranchModalVisible(true)}>
                   <Text style={styles.smallAddBtnText}>+ Add Branch</Text>
                 </TouchableOpacity>
@@ -502,6 +595,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                     <View style={styles.shopItemInfo}>
                       <Text style={[styles.shopItemName, isActive && styles.shopItemNameActive]}>{s.name}</Text>
                       <Text style={styles.shopItemSlug}>/{s.slug}</Text>
+                      {s.address ? (
+                        <Text style={styles.shopItemAddress} numberOfLines={1}>📍 {s.address}</Text>
+                      ) : null}
                     </View>
                     {isActive ? (
                       <View style={styles.activeBadge}>
@@ -1046,6 +1142,68 @@ const styles = StyleSheet.create({
     color: '#2563EB',
     fontSize: 13,
     fontWeight: '700',
+  },
+  shopOverviewHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  shopOverviewTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#111827',
+  },
+  editShopBtn: {
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+  },
+  editShopBtnText: {
+    color: '#1D4ED8',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  shopOverviewDetails: {
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    gap: 10,
+  },
+  overviewRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    paddingVertical: 2,
+  },
+  overviewLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#6B7280',
+    width: 130,
+  },
+  overviewValue: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1F2937',
+    flex: 1,
+    textAlign: 'right',
+  },
+  overviewMapLink: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#2563EB',
+    textAlign: 'right',
+  },
+  shopItemAddress: {
+    fontSize: 12,
+    color: '#4B5563',
+    marginTop: 3,
   },
   cashierModeButton: {
     backgroundColor: '#1E3A8A',

@@ -143,3 +143,4 @@ GRANT EXECUTE ON FUNCTION public.get_card(TEXT, TEXT) TO anon, authenticated;
 
 -- Refresh PostgREST schema cache
 NOTIFY pgrst, 'reload schema';
+
