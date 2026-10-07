@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>StampUp - Printable Counter Flyer</title>
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <style>
+    :root {
+      --primary: #1E3A8A;
+      --accent: #2563EB;
+      --gold: #D97706;
+      --bg: #F8FAFC;
+      --card-bg: #FFFFFF;
+      --border: #E2E8F0;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      background: #475569;
+      color: #0F172A;
+      padding: 30px 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+    }
+
+    /* Top Control Bar (Hidden when printing) */
+    .controls-bar {
+      background: white;
+      border-radius: 12px;
+      padding: 16px 24px;
+      width: 100%;
+      max-width: 680px;
+      margin-bottom: 24px;
+      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .controls-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #1E293B;
+    }
+
+    .controls-subtitle {
+      font-size: 13px;
+      color: #64748B;
+    }
+
+    .btn-print {
+      background: #2563EB;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 2px 4px rgba(37,99,235,0.3);
+      transition: background 0.15s ease;
+    }
+
+    .btn-print:hover {
+      background: #1D4ED8;
+    }
+
+    /* Printable Page Container (A4 / A5 Proportions) */
+    .flyer-sheet {
+      background: white;
+      width: 100%;
+      max-width: 650px;
+      min-height: 880px;
+      padding: 44px 40px;
+      border-radius: 16px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      position: relative;
+      text-align: center;
+    }
+
+    /* Header */
+    .brand-tag {
+      display: inline-block;
+      background: #EFF6FF;
+      color: #2563EB;
+      font-size: 14px;
+      font-weight: 800;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      padding: 6px 16px;
+      border-radius: 999px;
+      margin-bottom: 12px;
+    }
+
+    .shop-name {
+      font-size: 34px;
+      font-weight: 900;
+      color: #0F172A;
+      letter-spacing: -0.5px;
+      margin-bottom: 6px;
+    }
+
+    .flyer-tagline {
+      font-size: 18px;
+      font-weight: 600;
+      color: #475569;
+      margin-bottom: 24px;
+    }
+
+    /* Big QR Code Card */
+    .qr-card {
+      background: #F8FAFC;
+      border: 3px solid #E2E8F0;
+      border-radius: 20px;
+      padding: 24px;
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      margin: 0 auto 24px auto;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+    }
+
+    #qrcode {
+      background: white;
+      padding: 16px;
+      border-radius: 12px;
+      border: 1px solid #CBD5E1;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    #qrcode img, #qrcode canvas {
+      display: block;
+      margin: 0 auto;
+    }
+
+    .scan-notice {
+      margin-top: 14px;
+      font-size: 15px;
+      font-weight: 700;
+      color: #1E3A8A;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .scan-subnotice {
+      font-size: 13px;
+      color: #64748B;
+      margin-top: 2px;
+    }
+
+    /* Reward Promo Box */
+    .reward-banner {
+      background: #FFFBEB;
+      border: 2px dashed #F59E0B;
+      border-radius: 14px;
+      padding: 16px 20px;
+      margin-bottom: 28px;
+    }
+
+    .reward-banner-title {
+      font-size: 14px;
+      font-weight: 800;
+      color: #B45309;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 4px;
+    }
+
+    .reward-banner-desc {
+      font-size: 22px;
+      font-weight: 900;
+      color: #78350F;
+    }
+
+    /* 3 Simple Steps */
+    .steps-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      margin-bottom: 30px;
+      text-align: left;
+    }
+
+    .step-box {
+      background: #F8FAFC;
+      border: 1px solid #E2E8F0;
+      border-radius: 12px;
+      padding: 14px;
+      position: relative;
+    }
+
+    .step-num {
+      width: 26px;
+      height: 26px;
+      background: #2563EB;
+      color: white;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+
+    .step-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: #0F172A;
+      margin-bottom: 4px;
+    }
+
+    .step-desc {
+      font-size: 12px;
+      color: #64748B;
+      line-height: 1.4;
+    }
+
+    /* Footer Note */
+    .flyer-footer {
+      border-top: 1px solid #E2E8F0;
+      padding-top: 16px;
+      font-size: 13px;
+      color: #64748B;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .flyer-url {
+      font-weight: 700;
+      color: #2563EB;
+    }
+
+    /* Print Settings */
+    @media print {
+      body {
+        background: white;
+        padding: 0;
+      }
+      .controls-bar {
+        display: none !important;
+      }
+      .flyer-sheet {
+        box-shadow: none;
+        max-width: 100%;
+        border-radius: 0;
+        padding: 30px;
+      }
+      @page {
+        margin: 10mm;
+        size: auto;
+      }
+    }
+  </style>
+  <!-- Fast client-side QR Code Library -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+</head>
+<body>
+
+  <!-- Top Floating Controls for the Owner -->
+  <div class="controls-bar">
+    <div>
+      <div class="controls-title">🖨️ Counter Display / Tent Card</div>
+      <div class="controls-subtitle">Print this sheet and display it on your checkout counter.</div>
+    </div>
+    <button class="btn-print" onclick="window.print()">
+      🖨️ Print Counter Flyer
+    </button>
+  </div>
+
+  <!-- The Printable Flyer Sheet -->
+  <div class="flyer-sheet">
+    <div>
+      <!-- Header -->
+      <div class="brand-tag">Digital Stamp Card</div>
+      <h1 class="shop-name" id="shopName">Chai Corner</h1>
+      <p class="flyer-tagline">Collect digital stamps every time you visit!</p>
+
+      <!-- Big Scannable QR Code -->
+      <div class="qr-card">
+        <div id="qrcode"></div>
+        <div class="scan-notice">
+          <span>📷</span> Point your phone camera here
+        </div>
+        <div class="scan-subnotice">Instant access • No app download needed</div>
+      </div>
+
+      <!-- Reward Offer Box -->
+      <div class="reward-banner">
+        <div class="reward-banner-title" id="rewardHeader">Loyalty Reward</div>
+        <div class="reward-banner-desc" id="rewardOffer">Collect 8 stamps & get a free reward!</div>
+      </div>
+
+      <!-- 3 Steps -->
+      <div class="steps-grid">
+        <div class="step-box">
+          <div class="step-num">1</div>
+          <div class="step-title">Scan QR Code</div>
+          <div class="step-desc">Open with your phone camera anytime to see your stamp balance.</div>
+        </div>
+        <div class="step-box">
+          <div class="step-num">2</div>
+          <div class="step-title">Order & Pay</div>
+          <div class="step-desc">Tell the cashier your phone number to earn a stamp per visit.</div>
+        </div>
+        <div class="step-box">
+          <div class="step-num">3</div>
+          <div class="step-title">Get Free Treats</div>
+          <div class="step-desc">Once your card is full, claim your free reward at checkout!</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="flyer-footer">
+      <div>Digital Loyalty Program • Powered by <strong>StampUp</strong></div>
+      <div>Scan QR with any phone camera</div>
+    </div>
+  </div>
+
+  <script>
+    // Read parameters from URL query string
+    const params = new URLSearchParams(window.location.search);
+    const shopSlug = params.get('shop') || 'chai-corner';
+    const shopName = params.get('name') || 'Chai Corner';
+    const rewardText = params.get('reward') || 'Free item of your choice';
+    const stampsReq = params.get('stamps') || '8';
+
+    // Populate text
+    document.getElementById('shopName').textContent = shopName;
+    document.getElementById('rewardHeader').textContent = `Collect ${stampsReq} Stamps`;
+    document.getElementById('rewardOffer').textContent = rewardText;
+
+    // Build Customer Web URL for QR code
+    const host = window.location.origin;
+    const fullLink = `${host}/c/${shopSlug}`;
+
+    // Render QR Code
+    function renderQR() {
+      const qrEl = document.getElementById('qrcode');
+      qrEl.innerHTML = '';
+      if (typeof QRCode !== 'undefined') {
+        new QRCode(qrEl, {
+          text: fullLink,
+          width: 200,
+          height: 200,
+          colorDark: "#0F172A",
+          colorLight: "#FFFFFF",
+          correctLevel: QRCode.CorrectLevel.H
+        });
+      } else {
+        // Fallback: render QR image via public API if CDN blocked
+        const img = document.createElement('img');
+        img.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(fullLink)}`;
+        img.width = 200;
+        img.height = 200;
+        qrEl.appendChild(img);
+      }
+    }
+
+    window.addEventListener('load', renderQR);
+  </script>
+</body>
+</html>

@@ -1,0 +1,1413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <title>StampUp - Digital Loyalty Card</title>
+  <meta name="theme-color" content="#2563EB">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <link rel="apple-touch-icon" href="/icon.png">
+  <link id="pwaManifestLink" rel="manifest" href="/manifest.json">
+  <style>
+    :root {
+      --primary: #2563EB;
+      --primary-dark: #1D4ED8;
+      --bg: #F3F4F6;
+      --card-bg: #FFFFFF;
+      --text-main: #111827;
+      --text-muted: #6B7280;
+      --success: #059669;
+      --success-bg: #ECFDF5;
+      --error-bg: #FEE2E2;
+      --error-text: #991B1B;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text-main);
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      min-height: 100vh;
+      padding: 20px 16px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 420px;
+      margin: 0 auto;
+    }
+
+    /* Shop Header */
+    .header {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .badge {
+      display: inline-block;
+      background: #EFF6FF;
+      color: var(--primary);
+      font-size: 13px;
+      font-weight: 700;
+      padding: 4px 12px;
+      border-radius: 20px;
+      margin-bottom: 8px;
+      border: 1px solid #BFDBFE;
+    }
+
+    .shop-title {
+      font-size: 26px;
+      font-weight: 800;
+      color: #1E3A8A;
+      word-break: break-word;
+    }
+
+    /* Cards */
+    .card {
+      background: var(--card-bg);
+      border-radius: 18px;
+      padding: 24px 20px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+      border: 1px solid #E5E7EB;
+      margin-bottom: 16px;
+    }
+
+    .input-header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 8px;
+    }
+
+    .input-label {
+      font-size: 15px;
+      font-weight: 700;
+      color: #1E293B;
+      margin-bottom: 0;
+    }
+
+    .input-subtext {
+      font-size: 12px;
+      font-weight: 600;
+      color: #64748B;
+    }
+
+    /* Cohesive Unified Phone Input Group */
+    .phone-group-container {
+      display: flex;
+      align-items: center;
+      background: #FFFFFF;
+      border: 1.5px solid #CBD5E1;
+      border-radius: 14px;
+      height: 56px;
+      padding: 0 12px;
+      transition: all 0.2s ease;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+      position: relative;
+      margin-bottom: 6px;
+    }
+
+    .phone-group-container:focus-within {
+      border-color: #2563EB;
+      box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.15);
+      background: #FFFFFF;
+    }
+
+    .country-pill {
+      display: flex;
+      align-items: center;
+      position: relative;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .country-select {
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      appearance: none;
+      background: transparent;
+      border: none;
+      font-size: 15px;
+      font-weight: 700;
+      color: #0F172A;
+      outline: none;
+      padding: 8px 18px 8px 4px;
+      cursor: pointer;
+      line-height: 1.2;
+    }
+
+    .country-chevron {
+      position: absolute;
+      right: 2px;
+      font-size: 11px;
+      color: #64748B;
+      pointer-events: none;
+    }
+
+    .phone-divider {
+      width: 1.5px;
+      height: 26px;
+      background: #E2E8F0;
+      margin: 0 10px;
+      flex-shrink: 0;
+    }
+
+    .phone-input {
+      flex: 1;
+      min-width: 0;
+      background: transparent;
+      border: none;
+      outline: none;
+      font-size: 18px;
+      font-weight: 700;
+      color: #0F172A;
+      padding: 0;
+      height: 100%;
+      letter-spacing: 0.5px;
+    }
+
+    .phone-input::placeholder {
+      color: #94A3B8;
+      font-weight: 500;
+      font-size: 16px;
+    }
+
+    .clear-btn {
+      display: none;
+      background: #F1F5F9;
+      border: none;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      color: #64748B;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      margin-left: 6px;
+      flex-shrink: 0;
+    }
+
+    .clear-btn:active {
+      background: #E2E8F0;
+      color: #0F172A;
+    }
+
+    .phone-hint-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 16px;
+      font-size: 12px;
+      color: #64748B;
+      padding: 0 4px;
+    }
+
+    .btn {
+      width: 100%;
+      background: var(--primary);
+      color: #FFFFFF;
+      font-size: 17px;
+      font-weight: 700;
+      padding: 16px;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      transition: background 0.2s, transform 0.1s;
+      box-shadow: 0 4px 10px rgba(37, 99, 235, 0.3);
+    }
+
+    .btn:active {
+      transform: scale(0.98);
+      background: var(--primary-dark);
+    }
+
+    .btn:disabled {
+      opacity: 0.65;
+      cursor: not-allowed;
+    }
+
+    .btn-request {
+      background: #059669;
+      box-shadow: 0 4px 10px rgba(5, 150, 105, 0.25);
+      margin-top: 12px;
+    }
+
+    .btn-request:active {
+      background: #047857;
+    }
+
+    .request-status-box {
+      display: none;
+      margin-top: 12px;
+      padding: 12px 14px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 600;
+      text-align: center;
+      background: #ECFDF5;
+      border: 1.5px solid #10B981;
+      color: #065F46;
+      line-height: 1.4;
+    }
+
+    /* Stamp Circles Result View */
+    .result-section {
+      display: none;
+      animation: fadeIn 0.3s ease-in-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .stamp-count-text {
+      font-size: 24px;
+      font-weight: 800;
+      color: #1E3A8A;
+      text-align: center;
+      margin-bottom: 16px;
+    }
+
+    .circles-grid {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+      margin: 16px 0 20px 0;
+    }
+
+    .stamp-circle {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      border: 2.5px solid #CBD5E1;
+      background: #FFFFFF;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+      font-weight: 800;
+      color: #94A3B8;
+      transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .stamp-circle.filled {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: #FFFFFF;
+      font-size: 22px;
+      transform: scale(1.05);
+      box-shadow: 0 4px 8px rgba(37, 99, 235, 0.25);
+    }
+
+    .reward-box {
+      background: #EFF6FF;
+      border: 1.5px solid #BFDBFE;
+      border-radius: 12px;
+      padding: 14px;
+      text-align: center;
+      margin-bottom: 16px;
+    }
+
+    .reward-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: #1D4ED8;
+    }
+
+    .full-card-banner {
+      display: none;
+      background: var(--success-bg);
+      border: 2px solid var(--success);
+      border-radius: 14px;
+      padding: 16px;
+      text-align: center;
+      margin-bottom: 16px;
+    }
+
+    .full-card-banner.show {
+      display: block;
+      animation: bounceIn 0.5s ease;
+    }
+
+    @keyframes bounceIn {
+      0% { transform: scale(0.9); opacity: 0; }
+      50% { transform: scale(1.03); }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    .full-title {
+      font-size: 20px;
+      font-weight: 800;
+      color: #065F46;
+      margin-bottom: 4px;
+    }
+
+    .full-subtitle {
+      font-size: 15px;
+      font-weight: 600;
+      color: #047857;
+    }
+
+    /* Error & Alert Messages */
+    .alert {
+      display: none;
+      background: var(--error-bg);
+      border: 1px solid #EF4444;
+      color: var(--error-text);
+      padding: 12px 14px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 16px;
+    }
+
+    .alert.show {
+      display: block;
+    }
+
+    /* Privacy Footer Notice */
+    .privacy-notice {
+      text-align: center;
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.5;
+      padding: 8px 12px;
+    }
+
+    /* Spinner */
+    .spinner {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 3px solid rgba(255,255,255,0.3);
+      border-radius: 50%;
+      border-top-color: #fff;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .btn-secondary {
+      background: #F3F4F6;
+      color: #4B5563;
+      border: 1px solid #D1D5DB;
+      font-size: 14px;
+      font-weight: 600;
+      padding: 12px;
+      border-radius: 10px;
+      cursor: pointer;
+      width: 100%;
+      margin-top: 10px;
+    }
+
+    /* Customer Name Input */
+    .name-input {
+      width: 100%;
+      background: #FFFFFF;
+      border: 1.5px solid #CBD5E1;
+      border-radius: 14px;
+      height: 52px;
+      padding: 0 14px;
+      font-size: 16px;
+      font-weight: 600;
+      color: #0F172A;
+      outline: none;
+      transition: all 0.2s ease;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    }
+
+    .name-input:focus {
+      border-color: #2563EB;
+      box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.15);
+    }
+
+    .customer-greeting {
+      background: #EFF6FF;
+      border: 1.5px solid #BFDBFE;
+      color: #1E40AF;
+      font-size: 16px;
+      font-weight: 800;
+      padding: 12px 16px;
+      border-radius: 14px;
+      margin-bottom: 16px;
+      text-align: center;
+      line-height: 1.4;
+    }
+
+    /* Congratulation Modal */
+    .congrats-modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .congrats-backdrop {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(15, 23, 42, 0.65);
+      backdrop-filter: blur(4px);
+    }
+
+    .congrats-card {
+      position: relative;
+      background: #FFFFFF;
+      border-radius: 20px;
+      padding: 28px 22px;
+      max-width: 360px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 20px 30px rgba(0, 0, 0, 0.25);
+      animation: popIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    @keyframes popIn {
+      from { opacity: 0; transform: scale(0.85); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    .congrats-badge {
+      font-size: 40px;
+      margin-bottom: 8px;
+    }
+
+    .congrats-title {
+      font-size: 22px;
+      font-weight: 800;
+      color: #1E3A8A;
+      margin-bottom: 8px;
+    }
+
+    .congrats-desc {
+      font-size: 15px;
+      color: #334155;
+      line-height: 1.5;
+      margin-bottom: 22px;
+      font-weight: 500;
+    }
+
+    .congrats-btn {
+      width: 100%;
+      background: #16A34A;
+      color: #FFFFFF;
+      font-size: 16px;
+      font-weight: 800;
+      padding: 14px;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      box-shadow: 0 4px 10px rgba(22, 163, 74, 0.3);
+      transition: transform 0.1s, background 0.2s;
+    }
+
+    .congrats-btn:active {
+      transform: scale(0.98);
+      background: #15803D;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <div class="badge">StampUp Loyalty Card</div>
+      <h1 class="shop-title" id="shopName">Loading Shop...</h1>
+    </div>
+
+    <!-- Error Alert Box -->
+    <div class="alert" id="errorBox"></div>
+
+    <!-- Phone Entry Form -->
+    <div class="card" id="formCard">
+      <!-- Optional Name Field for First-Time Customer -->
+      <div id="nameInputWrapper" style="margin-bottom: 14px;">
+        <label class="input-label" for="nameInput" style="margin-bottom: 6px;">Your Name:</label>
+        <input
+          type="text"
+          id="nameInput"
+          class="name-input"
+          placeholder="e.g. Sarah"
+          autocomplete="name"
+          maxlength="50"
+        />
+      </div>
+
+      <div class="input-header-row">
+        <label class="input-label" for="phoneInput">Enter your mobile number:</label>
+      </div>
+
+      <div class="phone-group-container" id="phoneGroup">
+        <div class="country-pill">
+          <select id="countrySelect" class="country-select" onchange="handleCountryChange()" aria-label="Select Country Code">
+            <option value="+971" selected>🇦🇪 +971</option>
+            <option value="+966">🇸🇦 +966</option>
+            <option value="+1">🇺🇸 +1</option>
+            <option value="+44">🇬🇧 +44</option>
+            <option value="+91">🇮🇳 +91</option>
+            <option value="+92">🇵🇰 +92</option>
+            <option value="+880">🇧🇩 +880</option>
+            <option value="+974">🇶🇦 +974</option>
+            <option value="+965">🇰🇼 +965</option>
+            <option value="+973">🇧🇭 +973</option>
+            <option value="+968">🇴🇲 +968</option>
+            <option value="+20">🇪🇬 +20</option>
+            <option value="+61">🇦🇺 +61</option>
+            <option value="+49">🇩🇪 +49</option>
+            <option value="+33">🇫🇷 +33</option>
+            <option value="+63">🇵🇭 +63</option>
+            <option value="+65">🇸🇬 +65</option>
+            <option value="+60">🇲🇾 +60</option>
+          </select>
+          <span class="country-chevron">▾</span>
+        </div>
+
+        <div class="phone-divider"></div>
+
+        <input
+          type="tel"
+          id="phoneInput"
+          class="phone-input"
+          placeholder="50 123 4567"
+          autocomplete="tel"
+          inputmode="tel"
+          oninput="handlePhoneInput(this)"
+          aria-label="Mobile Number"
+        />
+
+        <button type="button" id="phoneClearBtn" class="clear-btn" aria-label="Clear mobile number" onclick="clearPhoneInput()">✕</button>
+      </div>
+
+      <div class="phone-hint-row">
+        <span>Format preview: <strong id="hintFormatText">+971 50 123 4567</strong></span>
+      </div>
+
+      <!-- Primary Action: Request Stamp at Counter -->
+      <button class="btn btn-request" id="formRequestStampBtn" onclick="handleRequestStamp('form')" style="margin-top: 0; margin-bottom: 10px;">
+        ✋ Request a Stamp
+      </button>
+      <div class="request-status-box" id="formRequestStatusBox" style="margin-bottom: 12px;"></div>
+
+      <!-- Secondary Action: View Stamps Balance -->
+      <button class="btn" id="submitBtn" onclick="lookupCard()">
+        <span id="btnText">🔍 My Stamps & Rewards</span>
+      </button>
+    </div>
+
+    <!-- Stamp Card Result Display -->
+    <div class="card result-section" id="resultCard">
+      <!-- Customer Name Greeting Banner -->
+      <div class="customer-greeting" id="customerGreeting" style="display: none;">
+        👋 Welcome, <span id="greetingName"></span>!
+      </div>
+
+      <!-- Full Card Reward Banner -->
+      <div class="full-card-banner" id="fullBanner">
+        <div class="full-title">🎉 Your card is full!</div>
+        <div class="full-subtitle">Show this to the cashier for your free reward!</div>
+      </div>
+
+      <!-- Stamp Count Text -->
+      <div class="stamp-count-text" id="stampCountText">0 of 8 stamps</div>
+
+      <!-- Circles Grid -->
+      <div class="circles-grid" id="circlesGrid"></div>
+
+      <!-- Reward Information -->
+      <div class="reward-box">
+        <div class="reward-title" id="rewardText">At 8 stamps: Free reward</div>
+      </div>
+
+      <!-- Request Stamp Button -->
+      <div id="requestStampWrapper">
+        <button class="btn btn-request" id="requestStampBtn" onclick="handleRequestStamp()">
+          ✋ Request a Stamp
+        </button>
+        <div class="request-status-box" id="requestStatusBox"></div>
+      </div>
+
+      <!-- Check Another Number Button -->
+      <button class="btn-secondary" onclick="resetForm()">Check Another Number</button>
+
+      <!-- Save to Home Screen Button -->
+      <button class="btn-secondary" id="installBtn" onclick="handleInstallClick()" style="margin-top: 8px;">
+        📱 Save Card to Home Screen
+      </button>
+    </div>
+
+    <!-- Persistent Congratulation Modal (vanishes once seen and dismissed) -->
+    <div id="congratsModal" class="congrats-modal" style="display: none;">
+      <div class="congrats-backdrop" onclick="dismissCongrats()"></div>
+      <div class="congrats-card">
+        <div class="congrats-badge">🎉</div>
+        <div class="congrats-title" id="congratsTitle">Congratulations!</div>
+        <div class="congrats-desc" id="congratsDesc">You received a new stamp!</div>
+        <button class="congrats-btn" onclick="dismissCongrats()">Awesome, Got it!</button>
+      </div>
+    </div>
+
+    <!-- Confetti Canvas -->
+    <canvas id="confettiCanvas" style="position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:999;display:none;"></canvas>
+
+    <!-- Privacy Note -->
+    <p class="privacy-notice">
+      🔒 We only use your phone number for this stamp card.
+    </p>
+  </div>
+
+  <!-- Configuration script -->
+  <script src="/config.js"></script>
+
+  <script>
+    let currentSlug = '';
+
+    // Extract Shop Slug from URL: /c/SHOP_SLUG, ?shop=SHOP_SLUG, hash #/c/SHOP_SLUG, or localStorage
+    function getShopSlug() {
+      const path = window.location.pathname;
+      const cMatch = path.match(/\/c\/([a-zA-Z0-9_\-]+)/);
+      if (cMatch && cMatch[1]) {
+        try { localStorage.setItem('stampup_active_slug', cMatch[1]); } catch(e){}
+        return cMatch[1];
+      }
+
+      const params = new URLSearchParams(window.location.search);
+      const paramShop = params.get('shop');
+      if (paramShop) {
+        try { localStorage.setItem('stampup_active_slug', paramShop); } catch(e){}
+        return paramShop;
+      }
+
+      const hash = window.location.hash;
+      const hashMatch = hash.match(/\/c\/([a-zA-Z0-9_\-]+)/);
+      if (hashMatch && hashMatch[1]) {
+        try { localStorage.setItem('stampup_active_slug', hashMatch[1]); } catch(e){}
+        return hashMatch[1];
+      }
+
+      try {
+        const saved = localStorage.getItem('stampup_active_slug');
+        if (saved && saved !== 'chai-corner') return saved;
+      } catch(e){}
+
+      return '';
+    }
+
+    currentSlug = getShopSlug();
+
+    // Elements
+    const shopNameEl = document.getElementById('shopName');
+    const errorBox = document.getElementById('errorBox');
+    const countrySelect = document.getElementById('countrySelect');
+    const phoneInput = document.getElementById('phoneInput');
+    const nameInput = document.getElementById('nameInput');
+    const nameWrapper = document.getElementById('nameInputWrapper');
+    const customerGreeting = document.getElementById('customerGreeting');
+    const greetingName = document.getElementById('greetingName');
+    const congratsModal = document.getElementById('congratsModal');
+    const congratsTitle = document.getElementById('congratsTitle');
+    const congratsDesc = document.getElementById('congratsDesc');
+    const submitBtn = document.getElementById('submitBtn');
+    const btnText = document.getElementById('btnText');
+    const formCard = document.getElementById('formCard');
+    const resultCard = document.getElementById('resultCard');
+    const stampCountText = document.getElementById('stampCountText');
+    const circlesGrid = document.getElementById('circlesGrid');
+    const rewardText = document.getElementById('rewardText');
+    const fullBanner = document.getElementById('fullBanner');
+    const requestStampBtn = document.getElementById('requestStampBtn');
+    const requestStatusBox = document.getElementById('requestStatusBox');
+
+    function showError(msg) {
+      errorBox.textContent = msg;
+      errorBox.classList.add('show');
+    }
+
+    function clearError() {
+      errorBox.textContent = '';
+      errorBox.classList.remove('show');
+    }
+
+    // Phone Input Formatting & Helper Handlers
+    function handleCountryChange() {
+      const cc = countrySelect.value;
+      const ph = phoneInput.value.trim();
+      const hint = document.getElementById('hintFormatText');
+      if (hint) {
+        hint.textContent = `${cc} ${ph || '50 123 4567'}`;
+      }
+    }
+
+    function handlePhoneInput(input) {
+      clearError();
+      const clearBtn = document.getElementById('phoneClearBtn');
+      if (clearBtn) {
+        clearBtn.style.display = input.value.trim().length > 0 ? 'inline-flex' : 'none';
+      }
+      handleCountryChange();
+
+      // Check if this number already has a remembered name
+      const rawDigits = input.value.trim().replace(/[\s\-\(\)\.]/g, '');
+      if (rawDigits.length >= 6) {
+        const full = getFullPhone();
+        const savedName = localStorage.getItem('stampup_name_' + full);
+        if (savedName) {
+          if (nameInput) nameInput.value = savedName;
+          if (nameWrapper) nameWrapper.style.display = 'none';
+        } else {
+          if (nameWrapper) nameWrapper.style.display = 'block';
+        }
+      } else {
+        if (nameWrapper) nameWrapper.style.display = 'block';
+      }
+    }
+
+    function clearPhoneInput() {
+      phoneInput.value = '';
+      const clearBtn = document.getElementById('phoneClearBtn');
+      if (clearBtn) clearBtn.style.display = 'none';
+      if (nameWrapper) nameWrapper.style.display = 'block';
+      handleCountryChange();
+      phoneInput.focus();
+    }
+
+    function dismissCongrats() {
+      const full = getFullPhone();
+      const cur = parseInt(stampCountText.textContent) || 0;
+      localStorage.setItem('stampup_seen_stamps_' + full, cur.toString());
+      if (congratsModal) congratsModal.style.display = 'none';
+    }
+
+    // Rate Limiter
+    let lookupAttempts = 0;
+    function checkRateLimit() {
+      const now = Date.now();
+      const lastLockout = parseInt(localStorage.getItem('stampup_lockout_until') || '0', 10);
+      if (now < lastLockout) {
+        const secondsLeft = Math.ceil((lastLockout - now) / 1000);
+        showError(`Too many attempts. Please wait ${secondsLeft} seconds.`);
+        return false;
+      }
+      lookupAttempts++;
+      if (lookupAttempts > 6) {
+        const lockoutUntil = now + 60000;
+        localStorage.setItem('stampup_lockout_until', lockoutUntil.toString());
+        lookupAttempts = 0;
+        showError('Too many attempts. Please wait 60 seconds.');
+        return false;
+      }
+      return true;
+    }
+
+    // Get Clean Normalized Phone
+    function getFullPhone() {
+      let raw = phoneInput.value.trim().replace(/[\s\-\(\)\.]/g, '');
+      if (raw.startsWith('+')) return raw;
+      if (raw.startsWith('0')) raw = raw.replace(/^0+/, '');
+      return countrySelect.value + raw;
+    }
+
+    // Dynamic PWA Manifest Generator so saving to Home Screen opens THIS specific customer card
+    function updateDynamicManifest(shopName, phoneVal, ccVal) {
+      try {
+        const slug = currentSlug || 'my-shop';
+        const fullCardUrl = window.location.origin + '/c/' + slug + 
+          (phoneVal ? ('?phone=' + encodeURIComponent(phoneVal) + '&cc=' + encodeURIComponent(ccVal || '')) : '');
+        
+        const manifestObj = {
+          name: `${shopName || 'StampUp'} - Stamp Card`,
+          short_name: shopName || 'Stamp Card',
+          description: `Digital loyalty stamp card for ${shopName || 'StampUp'}`,
+          start_url: fullCardUrl,
+          scope: '/',
+          display: 'standalone',
+          background_color: '#F3F4F6',
+          theme_color: '#2563EB',
+          icons: [
+            { src: '/icon.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
+            { src: '/icon.svg', sizes: '192x192 512x512', type: 'image/svg+xml', purpose: 'any maskable' }
+          ]
+        };
+        const stringManifest = JSON.stringify(manifestObj);
+        const blob = new Blob([stringManifest], { type: 'application/json' });
+        const manifestUrl = URL.createObjectURL(blob);
+        let link = document.getElementById('pwaManifestLink');
+        if (!link) {
+          link = document.createElement('link');
+          link.id = 'pwaManifestLink';
+          link.rel = 'manifest';
+          document.head.appendChild(link);
+        }
+        link.setAttribute('href', manifestUrl);
+      } catch (e) {}
+    }
+
+    // Initialize Page & Pre-fetch shop details
+    async function initPage() {
+      const config = window.STAMPUP_CONFIG || {};
+      const supabaseUrl = config.supabaseUrl;
+      const supabaseKey = config.supabaseAnonKey;
+
+      if (!supabaseUrl || !supabaseKey) {
+        showError('Configuration error: Supabase credentials missing.');
+        return;
+      }
+
+      currentSlug = getShopSlug();
+
+      // If at root '/' and a shop was saved in cookie or localStorage, automatically redirect!
+      if (window.location.pathname === '/' || window.location.pathname === '') {
+        const saved = localStorage.getItem('stampup_active_slug');
+        if (saved && saved !== 'chai-corner') {
+          window.location.replace('/c/' + saved);
+          return;
+        }
+      }
+
+      // If no slug found in URL or localStorage, fetch primary shop from database
+      if (!currentSlug) {
+        try {
+          const defRes = await fetch(`${supabaseUrl.replace(/\/+$/, '')}/rest/v1/rpc/get_default_shop`, {
+            method: 'POST',
+            headers: {
+              'apikey': supabaseKey,
+              'Authorization': `Bearer ${supabaseKey}`,
+              'Content-Type': 'application/json'
+            },
+            body: '{}'
+          });
+          if (defRes.ok) {
+            const defData = await defRes.json();
+            if (defData && defData.status === 'ok' && defData.slug) {
+              currentSlug = defData.slug;
+              try { localStorage.setItem('stampup_active_slug', currentSlug); } catch(e){}
+              window.history.replaceState(null, '', '/c/' + currentSlug);
+            }
+          }
+        } catch(e) {}
+      }
+
+      if (!currentSlug) currentSlug = 'chai-corner'; // fallback
+
+      // Check URL search parameters (phone, cc)
+      const urlParams = new URLSearchParams(window.location.search);
+      let savedPhone = urlParams.get('phone');
+      let savedCc = urlParams.get('cc');
+
+      if (!savedPhone) {
+        try {
+          savedPhone = localStorage.getItem('stampup_saved_phone_' + currentSlug);
+          savedCc = localStorage.getItem('stampup_saved_cc_' + currentSlug);
+        } catch (e) {}
+      }
+
+      if (savedPhone) {
+        phoneInput.value = savedPhone;
+        const clearBtn = document.getElementById('phoneClearBtn');
+        if (clearBtn) clearBtn.style.display = 'inline-flex';
+        // Check saved name
+        const full = getFullPhone();
+        const savedName = localStorage.getItem('stampup_name_' + full);
+        if (savedName) {
+          if (nameInput) nameInput.value = savedName;
+          if (nameWrapper) nameWrapper.style.display = 'none';
+        }
+      }
+      if (savedCc) countrySelect.value = savedCc;
+      handleCountryChange();
+
+      // Fetch shop details via get_card
+      try {
+        const res = await fetch(`${supabaseUrl.replace(/\/+$/, '')}/rest/v1/rpc/get_card`, {
+          method: 'POST',
+          headers: {
+            'apikey': supabaseKey,
+            'Authorization': `Bearer ${supabaseKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            p_shop_slug: currentSlug,
+            p_phone: '0500000000'
+          })
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          if (data.status === 'shop_not_found') {
+            // Auto-recovery: query get_default_shop before failing!
+            try {
+              const defRes = await fetch(`${supabaseUrl.replace(/\/+$/, '')}/rest/v1/rpc/get_default_shop`, {
+                method: 'POST',
+                headers: {
+                  'apikey': supabaseKey,
+                  'Authorization': `Bearer ${supabaseKey}`,
+                  'Content-Type': 'application/json'
+                },
+                body: '{}'
+              });
+              if (defRes.ok) {
+                const defData = await defRes.json();
+                if (defData && defData.status === 'ok' && defData.slug && defData.slug !== currentSlug) {
+                  currentSlug = defData.slug;
+                  try { localStorage.setItem('stampup_active_slug', currentSlug); } catch(e){}
+                  window.history.replaceState(null, '', '/c/' + currentSlug);
+                  return initPage();
+                }
+              }
+            } catch(e) {}
+
+            shopNameEl.textContent = 'Digital Stamp Card';
+            showError('Please scan your shop QR code to view your stamp card.');
+            phoneInput.disabled = false;
+            submitBtn.disabled = false;
+          } else if (data.shop_name) {
+            shopNameEl.textContent = data.shop_name;
+            rewardText.textContent = `At ${data.stamps_required} stamps: ${data.reward_text}`;
+            document.title = `${data.shop_name} - Loyalty Stamp Card`;
+            try { localStorage.setItem('stampup_active_slug', currentSlug); } catch(e){}
+            updateDynamicManifest(data.shop_name, phoneInput.value.trim(), countrySelect.value);
+
+            // If phone was provided via Home Screen shortcut or saved storage, auto-load their card!
+            if (savedPhone && savedPhone.length >= 6) {
+              lookupCard();
+            }
+          }
+        }
+      } catch (err) {
+        shopNameEl.textContent = 'Digital Stamp Card';
+      }
+    }
+
+    // Submit handler: Lookup customer stamps via get_card
+    async function lookupCard() {
+      clearError();
+
+      if (!checkRateLimit()) return;
+
+      const rawDigits = phoneInput.value.trim().replace(/[\s\-\(\)\.]/g, '');
+      if (!rawDigits || rawDigits.length < 6) {
+        showError('Please enter a valid mobile number.');
+        return;
+      }
+
+      const fullPhone = getFullPhone();
+      const enteredName = nameInput ? nameInput.value.trim() : '';
+      const existingName = localStorage.getItem('stampup_name_' + fullPhone) || '';
+      const finalName = enteredName || existingName;
+
+      const config = window.STAMPUP_CONFIG || {};
+      const supabaseUrl = config.supabaseUrl;
+      const supabaseKey = config.supabaseAnonKey;
+
+      submitBtn.disabled = true;
+      btnText.innerHTML = '<span class="spinner"></span>';
+
+      try {
+        const res = await fetch(`${supabaseUrl.replace(/\/+$/, '')}/rest/v1/rpc/get_card`, {
+          method: 'POST',
+          headers: {
+            'apikey': supabaseKey,
+            'Authorization': `Bearer ${supabaseKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            p_shop_slug: currentSlug,
+            p_phone: fullPhone,
+            p_name: finalName || null
+          })
+        });
+
+        if (!res.ok) throw new Error('Network error');
+
+        const data = await res.json();
+
+        if (data.status === 'invalid_phone') {
+          showError('Please check your mobile number format.');
+        } else if (data.status === 'shop_not_found') {
+          showError('Shop not found. Please verify the QR link.');
+        } else if (data.status === 'ok') {
+          // Remember phone & name on customer's device for next visit
+          try {
+            localStorage.setItem('stampup_saved_phone_' + currentSlug, phoneInput.value.trim());
+            localStorage.setItem('stampup_saved_cc_' + currentSlug, countrySelect.value);
+            localStorage.setItem('stampup_active_slug', currentSlug);
+            const savedCustName = data.customer_name || finalName;
+            if (savedCustName) {
+              localStorage.setItem('stampup_name_' + fullPhone, savedCustName);
+            }
+          } catch (e) {}
+
+          displayResult(data);
+        } else {
+          showError('Unable to load stamp card. Please try again.');
+        }
+      } catch (err) {
+        showError('No internet connection. Please check your network.');
+      } finally {
+        submitBtn.disabled = false;
+        btnText.textContent = '🔍 My Stamps & Rewards';
+      }
+    }
+
+    let pollInterval = null;
+
+    // Customer Requests a Stamp at Counter (from formCard or resultCard)
+    async function handleRequestStamp(source) {
+      clearError();
+
+      const rawDigits = phoneInput.value.trim().replace(/[\s\-\(\)\.]/g, '');
+      if (!rawDigits || rawDigits.length < 6) {
+        showError('Please enter your mobile number first to request a stamp.');
+        phoneInput.focus();
+        return;
+      }
+
+      const fullPhone = getFullPhone();
+      const enteredName = nameInput ? nameInput.value.trim() : '';
+      const existingName = localStorage.getItem('stampup_name_' + fullPhone) || '';
+      const finalName = enteredName || existingName;
+
+      const config = window.STAMPUP_CONFIG || {};
+      const supabaseUrl = config.supabaseUrl;
+      const supabaseKey = config.supabaseAnonKey;
+
+      const formBtn = document.getElementById('formRequestStampBtn');
+      const formBox = document.getElementById('formRequestStatusBox');
+
+      if (formBtn) {
+        formBtn.disabled = true;
+        formBtn.innerHTML = '<span class="spinner"></span> Sending Request...';
+      }
+      if (requestStampBtn) {
+        requestStampBtn.disabled = true;
+        requestStampBtn.innerHTML = '<span class="spinner"></span> Sending Request...';
+      }
+
+      try {
+        const res = await fetch(`${supabaseUrl.replace(/\/+$/, '')}/rest/v1/rpc/request_stamp`, {
+          method: 'POST',
+          headers: {
+            'apikey': supabaseKey,
+            'Authorization': `Bearer ${supabaseKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            p_shop_slug: currentSlug,
+            p_phone: fullPhone,
+            p_name: finalName || null
+          })
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          let msg = 'Could not submit stamp request.';
+          if (data && data.message) {
+            if (data.message.includes('schema cache') || data.message.includes('request_stamp')) {
+              msg = '⚡ Database setup needed: Please execute the SQL migration in your Supabase SQL Editor once.';
+            } else {
+              msg = data.message;
+            }
+          }
+          showError(msg);
+          if (formBtn) {
+            formBtn.disabled = false;
+            formBtn.innerHTML = '✋ Request a Stamp';
+          }
+          return;
+        }
+
+        if (data.status === 'ok' || data.status === 'already_pending') {
+          if (finalName) {
+            try { localStorage.setItem('stampup_name_' + fullPhone, finalName); } catch (e) {}
+          }
+
+          const statusHtml = '⏳ <strong>Stamp Requested!</strong> Tell the cashier to approve your stamp.';
+          if (formBox) {
+            formBox.innerHTML = statusHtml;
+            formBox.style.display = 'block';
+          }
+          if (requestStatusBox) {
+            requestStatusBox.innerHTML = statusHtml;
+            requestStatusBox.style.display = 'block';
+          }
+          if (formBtn) formBtn.style.display = 'none';
+          if (requestStampBtn) requestStampBtn.style.display = 'none';
+
+          // Start polling every 2.5 seconds to auto-update when cashier accepts
+          if (pollInterval) clearInterval(pollInterval);
+          let prevStamps = parseInt(stampCountText.textContent) || 0;
+
+          // Fetch initial card state immediately
+          const initialCardRes = await fetch(`${supabaseUrl.replace(/\/+$/, '')}/rest/v1/rpc/get_card`, {
+            method: 'POST',
+            headers: {
+              'apikey': supabaseKey,
+              'Authorization': `Bearer ${supabaseKey}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ p_shop_slug: currentSlug, p_phone: fullPhone, p_name: finalName || null })
+          });
+          if (initialCardRes.ok) {
+            const initialCard = await initialCardRes.json();
+            if (initialCard.status === 'ok') {
+              prevStamps = initialCard.current_stamps;
+              displayResult(initialCard);
+              requestStatusBox.innerHTML = '⏳ <strong>Request Pending:</strong> Cashier has your request on their screen.';
+              requestStatusBox.style.display = 'block';
+              requestStampBtn.style.display = 'none';
+            }
+          }
+
+          pollInterval = setInterval(async () => {
+            try {
+              const checkRes = await fetch(`${supabaseUrl.replace(/\/+$/, '')}/rest/v1/rpc/get_card`, {
+                method: 'POST',
+                headers: {
+                  'apikey': supabaseKey,
+                  'Authorization': `Bearer ${supabaseKey}`,
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ p_shop_slug: currentSlug, p_phone: fullPhone, p_name: finalName || null })
+              });
+              const cardData = await checkRes.json();
+              if (cardData.status === 'ok') {
+                if (cardData.current_stamps > prevStamps || (prevStamps >= (cardData.stamps_required || 8) && cardData.current_stamps === 0)) {
+                  clearInterval(pollInterval);
+                  displayResult(cardData, true); // trigger congrats
+                  requestStatusBox.innerHTML = '🎉 <strong>Stamp Approved!</strong> +1 stamp added!';
+                  requestStatusBox.style.display = 'block';
+                  launchConfetti();
+                  setTimeout(() => {
+                    requestStatusBox.style.display = 'none';
+                    requestStampBtn.style.display = 'block';
+                  }, 6000);
+                }
+              }
+            } catch (e) {}
+          }, 2500);
+        } else {
+          showError(data.message || 'Could not submit stamp request.');
+          if (formBtn) {
+            formBtn.disabled = false;
+            formBtn.innerHTML = '✋ Request a Stamp';
+          }
+        }
+      } catch (e) {
+        showError('Network error. Please try again.');
+        if (formBtn) {
+          formBtn.disabled = false;
+          formBtn.innerHTML = '✋ Request a Stamp';
+        }
+      } finally {
+        if (requestStampBtn) {
+          requestStampBtn.disabled = false;
+          requestStampBtn.innerHTML = '✋ Request a Stamp';
+        }
+      }
+    }
+
+    // Render Circles & Stamps
+    function displayResult(data, isLiveApproval) {
+      shopNameEl.textContent = data.shop_name;
+      document.title = `${data.shop_name} - Loyalty Card`;
+      const cur = data.current_stamps || 0;
+      const total = data.stamps_required || 8;
+      const fullPhone = getFullPhone();
+
+      // Update URL with customer phone for bookmarking / Home Screen icon
+      try {
+        const cleanPhone = phoneInput.value.trim();
+        const currentCc = countrySelect.value;
+        const newUrl = '/c/' + currentSlug + '?phone=' + encodeURIComponent(cleanPhone) + '&cc=' + encodeURIComponent(currentCc);
+        window.history.replaceState(null, '', newUrl);
+        updateDynamicManifest(data.shop_name, cleanPhone, currentCc);
+      } catch (e) {}
+
+      // Handle Customer Name Greeting
+      const name = data.customer_name || localStorage.getItem('stampup_name_' + fullPhone) || '';
+      if (name) {
+        try { localStorage.setItem('stampup_name_' + fullPhone, name); } catch(e){}
+        if (greetingName) greetingName.textContent = name;
+        if (customerGreeting) customerGreeting.style.display = 'block';
+      } else {
+        if (customerGreeting) customerGreeting.style.display = 'none';
+      }
+
+      stampCountText.textContent = `${cur} of ${total} stamps`;
+      rewardText.textContent = `At ${total} stamps: ${data.reward_text}`;
+
+      // Reset request status
+      requestStatusBox.style.display = 'none';
+      requestStampBtn.style.display = 'block';
+
+      // Build Circles
+      circlesGrid.innerHTML = '';
+      for (let i = 1; i <= total; i++) {
+        const circle = document.createElement('div');
+        circle.className = 'stamp-circle' + (i <= cur ? ' filled' : '');
+        circle.innerHTML = i <= cur ? '★' : i;
+        circlesGrid.appendChild(circle);
+      }
+
+      // Check for New Stamp Celebration (Persists until user taps Got It!)
+      const lastSeenStr = localStorage.getItem('stampup_seen_stamps_' + fullPhone);
+      const lastSeen = lastSeenStr !== null ? parseInt(lastSeenStr, 10) : null;
+
+      if ((lastSeen !== null && cur > lastSeen) || isLiveApproval) {
+        if (cur >= total) {
+          congratsTitle.textContent = '🎉 Your Card is Full!';
+          congratsDesc.textContent = (name ? name + ', you' : 'You') + ' earned a reward: ' + data.reward_text + '! Show this to the cashier to claim it.';
+        } else {
+          congratsTitle.textContent = '🎉 Congratulations!';
+          congratsDesc.textContent = (name ? name + ', you' : 'You') + ' received a stamp! You now have ' + cur + ' of ' + total + ' stamps.';
+        }
+        congratsModal.style.display = 'flex';
+        launchConfetti();
+      } else if (lastSeen === null) {
+        localStorage.setItem('stampup_seen_stamps_' + fullPhone, cur.toString());
+      }
+
+      // Check if full
+      if (cur >= total) {
+        fullBanner.classList.add('show');
+        launchConfetti();
+      } else {
+        fullBanner.classList.remove('show');
+      }
+
+      formCard.style.display = 'none';
+      resultCard.style.display = 'block';
+    }
+
+    function resetForm() {
+      resultCard.style.display = 'none';
+      formCard.style.display = 'block';
+      phoneInput.value = '';
+      clearError();
+      try {
+        window.history.replaceState(null, '', '/c/' + currentSlug);
+      } catch (e) {}
+      if (nameWrapper) nameWrapper.style.display = 'block';
+      phoneInput.focus();
+    }
+
+    // Confetti Animation for full card celebration
+    function launchConfetti() {
+      const canvas = document.getElementById('confettiCanvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      canvas.style.display = 'block';
+
+      const pieces = [];
+      const colors = ['#2563EB', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
+
+      for (let i = 0; i < 70; i++) {
+        pieces.push({
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height * 0.4,
+          r: Math.random() * 6 + 4,
+          d: Math.random() * 70,
+          color: colors[Math.floor(Math.random() * colors.length)],
+          tilt: Math.floor(Math.random() * 10) - 10,
+          tiltAngleIncremental: (Math.random() * 0.07) + 0.05,
+          tiltAngle: 0,
+          speed: Math.random() * 2 + 2
+        });
+      }
+
+      let animationFrame;
+      const startTime = Date.now();
+
+      function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        pieces.forEach(p => {
+          p.tiltAngle += p.tiltAngleIncremental;
+          p.y += (Math.cos(p.d) + 1 + p.speed);
+          p.tilt = Math.sin(p.tiltAngle) * 15;
+
+          ctx.beginPath();
+          ctx.lineWidth = p.r;
+          ctx.strokeStyle = p.color;
+          ctx.moveTo(p.x + p.tilt + p.r / 2, p.y);
+          ctx.lineTo(p.x + p.tilt, p.y + p.tilt + p.r / 2);
+          ctx.stroke();
+        });
+
+        if (Date.now() - startTime < 3500) {
+          animationFrame = requestAnimationFrame(draw);
+        } else {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          canvas.style.display = 'none';
+          cancelAnimationFrame(animationFrame);
+        }
+      }
+      draw();
+    }
+
+    // PWA "Save Card to Home Screen" handling
+    let deferredPrompt = null;
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      const btn = document.getElementById('installBtn');
+      if (btn) btn.style.display = 'block';
+    });
+
+    function handleInstallClick() {
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        deferredPrompt.userChoice.then(() => {
+          deferredPrompt = null;
+        });
+      } else {
+        alert(
+          '📱 Save Your Personal Stamp Card to Home Screen:\n\n' +
+          '• iPhone (Safari): Tap the Share button (square with arrow ↑) at the bottom, scroll down, and tap "Add to Home Screen".\n\n' +
+          '• Android (Chrome): Tap the 3 dots (⋮) in the top-right corner, then tap "Add to Home Screen" or "Install App".\n\n' +
+          'Opening this shortcut will instantly show your live stamp card!'
+        );
+      }
+    }
+
+    // Allow pressing "Enter" key
+    phoneInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') lookupCard();
+    });
+
+    initPage();
+  </script>
+</body>
+</html>

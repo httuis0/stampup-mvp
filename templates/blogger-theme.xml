@@ -1,0 +1,790 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html>
+<html b:css='false' b:responsive='true' b:version='2' class='v2' expr:dir='data:blog.languageDirection' expr:lang='data:blog.locale' xmlns='http://www.w3.org/1999/xhtml' xmlns:b='http://www.google.com/2005/gml/b' xmlns:data='http://www.google.com/2005/gml/data' xmlns:expr='http://www.google.com/2005/gml/expr'>
+<head>
+  <meta charset='utf-8'/>
+  <meta content='width=device-width, initial-scale=1.0, maximum-scale=5.0' name='viewport'/>
+  <title><data:blog.pageTitle/></title>
+  
+  <b:include data='blog' name='all-head-content'/>
+
+  <!-- Google Fonts: Plus Jakarta Sans & Merriweather -->
+  <link href='https://fonts.googleapis.com' rel='preconnect'/>
+  <link crossorigin='anonymous' href='https://fonts.gstatic.com' rel='preconnect'/>
+  <link href='https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&amp;family=Merriweather:ital,wght@0,300;0,400;0,700;1,300;1,400&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap' rel='stylesheet'/>
+
+  <b:skin><![CDATA[
+  /* ==========================================================================
+     LUMA SPARKS — COMPLETE BLOGGER XML THEME
+     Design Tokens: Warm Cream, Forest Green, Lime, Ink Typography
+     ========================================================================== */
+  :root {
+    --bg-cream: #FAF8F5;
+    --bg-white: #FFFFFF;
+    --bg-surface: #F8FAFC;
+    --text-ink: #0F172A;
+    --text-sub: #334155;
+    --text-mute: #64748B;
+    --border-line: #E2E8F0;
+    --border-soft: #F1F5F9;
+    --color-green: #059669;
+    --color-green-dark: #047857;
+    --color-green-light: #ECFDF5;
+    --color-lime: #10B981;
+    --color-coral: #FF5A36;
+    --color-coral-soft: #FFF1EE;
+    --color-violet: #7C3AED;
+    --color-violet-soft: #F5F3FF;
+    --color-amber: #D97706;
+    --color-amber-soft: #FEF3C7;
+    --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    --font-serif: 'Merriweather', Georgia, serif;
+    --font-mono: 'JetBrains Mono', monospace;
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.06);
+    --shadow-lg: 0 10px 30px rgba(5, 150, 105, 0.12);
+    --radius-sm: 8px;
+    --radius-md: 14px;
+    --radius-lg: 20px;
+    --radius-full: 9999px;
+  }
+
+  /* Reset & Box Sizing */
+  *, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    background-color: var(--bg-cream);
+    color: var(--text-ink);
+    font-family: var(--font-sans);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  a {
+    color: var(--color-green);
+    text-decoration: none;
+    transition: color 0.2s ease;
+  }
+
+  a:hover {
+    color: var(--color-green-dark);
+  }
+
+  /* Global Layout Container */
+  .luma-container {
+    max-width: 1160px;
+    margin: 0 auto;
+    padding: 0 20px;
+  }
+
+  /* Header & Navigation */
+  .luma-header {
+    background: var(--bg-white);
+    border-bottom: 1px solid var(--border-line);
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+  }
+
+  .luma-header-inner {
+    display: flex;
+    align-items: center;
+    justifyContent: space-between;
+    height: 72px;
+  }
+
+  .luma-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .luma-logo-badge {
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-sm);
+    background: var(--color-green);
+    color: var(--bg-white);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    font-weight: 900;
+    transform: rotate(-3deg);
+  }
+
+  .luma-brand-text h1, .luma-brand-text .title {
+    font-size: 20px;
+    font-weight: 900;
+    letter-spacing: -0.5px;
+    color: var(--text-ink);
+    margin: 0;
+    line-height: 1.2;
+  }
+
+  .luma-brand-text p {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-mute);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+  }
+
+  .luma-nav {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+  }
+
+  .luma-nav a {
+    color: var(--text-sub);
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  .luma-nav a:hover, .luma-nav a.active {
+    color: var(--color-green);
+  }
+
+  .luma-cta-button {
+    background: var(--color-green);
+    color: var(--bg-white) !important;
+    padding: 9px 18px;
+    border-radius: var(--radius-full);
+    font-size: 13px;
+    font-weight: 800;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    box-shadow: 0 4px 12px rgba(5, 150, 105, 0.25);
+    transition: all 0.2s ease;
+  }
+
+  .luma-cta-button:hover {
+    background: var(--color-green-dark);
+    transform: translateY(-1px);
+  }
+
+  /* Hero Featured Banner */
+  .luma-hero-banner {
+    padding: 36px 0;
+  }
+
+  .luma-hero-card {
+    background: linear-gradient(135deg, #064E3B 0%, #047857 100%);
+    border-radius: var(--radius-lg);
+    padding: 40px;
+    color: var(--bg-white);
+    position: relative;
+    overflow: hidden;
+    box-shadow: var(--shadow-lg);
+  }
+
+  .luma-hero-badge-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .luma-hero-badge {
+    background: rgba(255, 255, 255, 0.25);
+    backdrop-filter: blur(8px);
+    padding: 4px 12px;
+    border-radius: var(--radius-full);
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 0.8px;
+  }
+
+  .luma-hero-time {
+    color: #D1FAE5;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .luma-hero-title {
+    font-size: 32px;
+    font-weight: 900;
+    line-height: 1.25;
+    margin-bottom: 12px;
+    max-width: 800px;
+    letter-spacing: -0.8px;
+  }
+
+  .luma-hero-title a {
+    color: var(--bg-white);
+  }
+
+  .luma-hero-excerpt {
+    font-size: 15px;
+    color: #E6F4EA;
+    line-height: 1.6;
+    max-width: 720px;
+    margin-bottom: 24px;
+  }
+
+  .luma-hero-footer {
+    display: flex;
+    align-items: center;
+    justifyContent: space-between;
+    padding-top: 18px;
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
+  }
+
+  .luma-author-meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .luma-author-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-full);
+    background: var(--bg-white);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+  }
+
+  .luma-author-name {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--bg-white);
+  }
+
+  /* Main Content Layout with Sidebar */
+  .luma-main-layout {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 36px;
+    padding-bottom: 60px;
+  }
+
+  /* Category Filter Bar */
+  .luma-filter-bar {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 24px;
+    overflow-x: auto;
+    padding-bottom: 6px;
+  }
+
+  .luma-filter-chip {
+    background: var(--bg-white);
+    border: 1px solid var(--border-line);
+    padding: 8px 16px;
+    border-radius: var(--radius-full);
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-sub);
+    white-space: nowrap;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .luma-filter-chip:hover, .luma-filter-chip.active {
+    background: var(--text-ink);
+    border-color: var(--text-ink);
+    color: var(--bg-white);
+  }
+
+  /* Posts Grid */
+  .luma-posts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 24px;
+  }
+
+  .luma-post-card {
+    background: var(--bg-white);
+    border: 1px solid var(--border-line);
+    border-radius: var(--radius-md);
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    justifyContent: space-between;
+    box-shadow: var(--shadow-sm);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .luma-post-card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-md);
+    border-color: #CBD5E1;
+  }
+
+  .luma-card-header {
+    display: flex;
+    align-items: center;
+    justifyContent: space-between;
+    margin-bottom: 12px;
+  }
+
+  .luma-cat-tag {
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    padding: 4px 10px;
+    border-radius: var(--radius-sm);
+    background: var(--color-green-light);
+    color: var(--color-green-dark);
+  }
+
+  .luma-card-time {
+    font-size: 12px;
+    color: var(--text-mute);
+    font-weight: 600;
+  }
+
+  .luma-post-card-title {
+    font-size: 19px;
+    font-weight: 800;
+    line-height: 1.35;
+    color: var(--text-ink);
+    margin-bottom: 10px;
+  }
+
+  .luma-post-card-title a {
+    color: inherit;
+  }
+
+  .luma-post-card-title a:hover {
+    color: var(--color-green);
+  }
+
+  .luma-post-card-excerpt {
+    font-size: 13.5px;
+    color: var(--text-sub);
+    line-height: 1.6;
+    margin-bottom: 20px;
+    flex-grow: 1;
+  }
+
+  .luma-card-footer {
+    display: flex;
+    align-items: center;
+    justifyContent: space-between;
+    padding-top: 14px;
+    border-top: 1px solid var(--border-soft);
+  }
+
+  .luma-card-author {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-sub);
+  }
+
+  .luma-card-likes {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-mute);
+  }
+
+  /* Single Post Detail View */
+  .luma-article-container {
+    background: var(--bg-white);
+    border: 1px solid var(--border-line);
+    border-radius: var(--radius-lg);
+    padding: 44px;
+    box-shadow: var(--shadow-sm);
+    margin-bottom: 40px;
+  }
+
+  .luma-article-header {
+    margin-bottom: 30px;
+    border-bottom: 1px solid var(--border-line);
+    padding-bottom: 24px;
+  }
+
+  .luma-article-title {
+    font-size: 36px;
+    font-weight: 900;
+    line-height: 1.25;
+    color: var(--text-ink);
+    letter-spacing: -0.8px;
+    margin: 12px 0;
+  }
+
+  .luma-article-subtitle {
+    font-size: 18px;
+    color: var(--text-mute);
+    line-height: 1.5;
+    margin-bottom: 20px;
+  }
+
+  .luma-article-body {
+    font-family: var(--font-serif);
+    font-size: 17px;
+    line-height: 1.8;
+    color: #1E293B;
+  }
+
+  .luma-article-body h2 {
+    font-family: var(--font-sans);
+    font-size: 24px;
+    font-weight: 900;
+    color: var(--text-ink);
+    margin: 36px 0 16px 0;
+    letter-spacing: -0.4px;
+  }
+
+  .luma-article-body p {
+    margin-bottom: 20px;
+  }
+
+  /* Callout Boxes */
+  .luma-callout {
+    font-family: var(--font-sans);
+    border-left: 4px solid var(--color-green);
+    background: var(--color-green-light);
+    border-radius: 0 var(--radius-md) var(--radius-md) 0;
+    padding: 18px 24px;
+    margin: 28px 0;
+  }
+
+  .luma-callout-title {
+    font-size: 14px;
+    font-weight: 800;
+    color: var(--color-green-dark);
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+  }
+
+  .luma-callout-text {
+    font-size: 14px;
+    line-height: 1.6;
+    color: #064E3B;
+  }
+
+  /* Sidebar Widgets */
+  .luma-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  .luma-widget-card {
+    background: var(--bg-white);
+    border: 1px solid var(--border-line);
+    border-radius: var(--radius-md);
+    padding: 24px;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .luma-widget-title {
+    font-size: 14px;
+    font-weight: 900;
+    color: var(--text-ink);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .luma-search-input {
+    width: 100%;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-line);
+    padding: 11px 16px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    font-family: var(--font-sans);
+    color: var(--text-ink);
+    outline: none;
+    transition: border-color 0.2s ease;
+  }
+
+  .luma-search-input:focus {
+    border-color: var(--color-green);
+    background: var(--bg-white);
+  }
+
+  .luma-newsletter-widget {
+    background: #F3F4F6;
+    border: 1px solid #E5E7EB;
+    border-radius: var(--radius-md);
+    padding: 24px;
+    text-align: center;
+  }
+
+  .luma-newsletter-icon {
+    font-size: 32px;
+    margin-bottom: 10px;
+  }
+
+  .luma-newsletter-heading {
+    font-size: 17px;
+    font-weight: 900;
+    color: var(--text-ink);
+    margin-bottom: 6px;
+  }
+
+  .luma-newsletter-desc {
+    font-size: 12.5px;
+    color: var(--text-mute);
+    line-height: 1.5;
+    margin-bottom: 16px;
+  }
+
+  .luma-newsletter-btn {
+    width: 100%;
+    background: var(--color-green);
+    color: var(--bg-white);
+    border: none;
+    padding: 12px;
+    border-radius: var(--radius-sm);
+    font-weight: 800;
+    font-size: 13px;
+    cursor: pointer;
+    margin-top: 8px;
+    transition: background 0.2s ease;
+  }
+
+  .luma-newsletter-btn:hover {
+    background: var(--color-green-dark);
+  }
+
+  /* Footer */
+  .luma-footer {
+    background: var(--bg-white);
+    border-top: 1px solid var(--border-line);
+    padding: 40px 0;
+    margin-top: 60px;
+    text-align: center;
+    font-size: 13px;
+    color: var(--text-mute);
+  }
+
+  .luma-footer-links {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    margin-bottom: 16px;
+  }
+
+  .luma-footer-links a {
+    color: var(--text-sub);
+    font-weight: 700;
+  }
+
+  /* Responsive Breakpoints */
+  @media (max-width: 900px) {
+    .luma-main-layout {
+      grid-template-columns: 1fr;
+    }
+    .luma-nav {
+      display: none;
+    }
+    .luma-hero-title {
+      font-size: 26px;
+    }
+    .luma-hero-card {
+      padding: 24px;
+    }
+    .luma-article-container {
+      padding: 24px;
+    }
+  }
+  ]]></b:skin>
+
+  <b:template-skin><![CDATA[
+  /* Blogger dynamic layout tweaks */
+  body#layout #content { width: 1000px; }
+  ]]></b:template-skin>
+</head>
+
+<body>
+  <!-- Header Bar -->
+  <header class='luma-header'>
+    <div class='luma-container'>
+      <div class='luma-header-inner'>
+        <div class='luma-brand'>
+          <div class='luma-logo-badge'>✦</div>
+          <div class='luma-brand-text'>
+            <a href='/'>
+              <h1 class='title'>Luma Sparks</h1>
+              <p>Linguistics &amp; Spoken Fluency</p>
+            </a>
+          </div>
+        </div>
+
+        <nav class='luma-nav'>
+          <a class='active' href='/'>All Articles</a>
+          <a href='/search/label/Strategies'>Strategies</a>
+          <a href='/search/label/Speaking'>Speaking</a>
+          <a href='/search/label/Grammar'>Grammar</a>
+          <a href='/search/label/Culture'>Culture</a>
+          <a href='/search/label/Colony'>Colony</a>
+          <a class='luma-cta-button' href='https://luma.app'>Download App ↗</a>
+        </nav>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <b:if cond='data:view.isHomepage'>
+    <section class='luma-hero-banner'>
+      <div class='luma-container'>
+        <div class='luma-hero-card'>
+          <div class='luma-hero-badge-row'>
+            <span class='luma-hero-badge'>🌟 FEATURED EDITORIAL</span>
+            <span class='luma-hero-time'>5 min read • Linguistics &amp; Habit Science</span>
+          </div>
+          <h2 class='luma-hero-title'>
+            <a href='/2026/09/break-intermediate-plateau.html'>
+              Breaking the Intermediate Plateau: The Ant Colony Spaced-Repetition Method
+            </a>
+          </h2>
+          <p class='luma-hero-excerpt'>
+            Why conventional studying stalls at B1, and how high-frequency micro-bursts of spoken retrieval rewire your procedural memory circuits.
+          </p>
+          <div class='luma-hero-footer'>
+            <div class='luma-author-meta'>
+              <div class='luma-author-avatar'>👩‍🔬</div>
+              <span class='luma-author-name'>Dr. Elena Vance • Lead Cognitive Linguist</span>
+            </div>
+            <a class='luma-cta-button' href='/2026/09/break-intermediate-plateau.html' style='background: #FFFFFF; color: #047857 !important;'>
+              Read Article →
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </b:if>
+
+  <!-- Main Body Content -->
+  <main class='luma-container'>
+    <!-- Category Filter Bar (Homepage) -->
+    <b:if cond='data:view.isHomepage'>
+      <div class='luma-filter-bar'>
+        <a class='luma-filter-chip active' href='/'>🌟 All Posts</a>
+        <a class='luma-filter-chip' href='/search/label/Strategies'>🧠 Strategies</a>
+        <a class='luma-filter-chip' href='/search/label/Speaking'>🗣️ Speaking &amp; Fluency</a>
+        <a class='luma-filter-chip' href='/search/label/Grammar'>🧩 Grammar &amp; Lexis</a>
+        <a class='luma-filter-chip' href='/search/label/Culture'>☕ Culture &amp; Etiquette</a>
+        <a class='luma-filter-chip' href='/search/label/Colony'>🍯 Colony &amp; Habits</a>
+      </div>
+    </b:if>
+
+    <div class='luma-main-layout'>
+      <!-- Primary Blog Posts Section -->
+      <div class='luma-primary-content'>
+        <b:section id='main' showaddelement='yes'>
+          <b:widget id='Blog1' locked='true' title='Blog Posts' type='Blog' version='2'>
+            <b:includable id='main'>
+              <!-- Post Detail View -->
+              <b:if cond='data:view.isPost'>
+                <b:loop values='data:posts' var='post'>
+                  <article class='luma-article-container'>
+                    <div class='luma-article-header'>
+                      <span class='luma-cat-tag'><data:post.labels.first.name/></span>
+                      <h1 class='luma-article-title'><data:post.title/></h1>
+                      <div class='luma-card-footer' style='border: none; padding: 0;'>
+                        <div class='luma-card-author'>
+                          <span>✍️ <data:post.author.name/></span>
+                          <span>•</span>
+                          <span><data:post.date/></span>
+                        </div>
+                      </div>
+                    </div>
+                    <div class='luma-article-body'>
+                      <data:post.body/>
+                    </div>
+                  </article>
+                </b:loop>
+              </b:if>
+
+              <!-- Homepage & Archive Post Cards Grid -->
+              <b:if cond='data:view.isMultipleItems'>
+                <div class='luma-posts-grid'>
+                  <b:loop values='data:posts' var='post'>
+                    <div class='luma-post-card'>
+                      <div>
+                        <div class='luma-card-header'>
+                          <span class='luma-cat-tag'><data:post.labels.first.name/></span>
+                          <span class='luma-card-time'><data:post.date/></span>
+                        </div>
+                        <h3 class='luma-post-card-title'>
+                          <a expr:href='data:post.url'><data:post.title/></a>
+                        </h3>
+                        <p class='luma-post-card-excerpt'>
+                          <b:eval expr='snippet(data:post.body, {length: 120, links: false, linebreaks: false})'/>
+                        </p>
+                      </div>
+                      <div class='luma-card-footer'>
+                        <div class='luma-card-author'>
+                          <span>👤 <data:post.author.name/></span>
+                        </div>
+                        <a expr:href='data:post.url' style='font-size: 13px; font-weight: 800;'>Read →</a>
+                      </div>
+                    </div>
+                  </b:loop>
+                </div>
+              </b:if>
+            </b:includable>
+          </b:widget>
+        </b:section>
+      </div>
+
+      <!-- Sidebar -->
+      <aside class='luma-sidebar'>
+        <!-- Search Widget -->
+        <div class='luma-widget-card'>
+          <h4 class='luma-widget-title'>🔍 Search Fluency Archive</h4>
+          <form action='/search' method='get'>
+            <input class='luma-search-input' name='q' placeholder='Search techniques, rules, lexis…' type='text'/>
+          </form>
+        </div>
+
+        <!-- Weekly Newsletter Box -->
+        <div class='luma-newsletter-widget'>
+          <div class='luma-newsletter-icon'>📬</div>
+          <h4 class='luma-newsletter-heading'>Weekly Fluency Sparks</h4>
+          <p class='luma-newsletter-desc'>
+            Join 45,000+ polyglots receiving our high-impact linguistic breakdowns every Sunday morning.
+          </p>
+          <form onsubmit='alert("Thank you for subscribing to Luma Sparks!"); return false;'>
+            <input class='luma-search-input' placeholder='Enter your email address' required='required' type='email'/>
+            <button class='luma-newsletter-btn' type='submit'>Subscribe Free →</button>
+          </form>
+        </div>
+
+        <!-- Secondary Section for Native Widgets -->
+        <b:section id='sidebar' showaddelement='yes'>
+          <b:widget id='Label1' locked='false' title='Explore Categories' type='Label' version='2'/>
+          <b:widget id='PopularPosts1' locked='false' title='Most Read This Month' type='PopularPosts' version='2'/>
+        </b:section>
+      </aside>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class='luma-footer'>
+    <div class='luma-container'>
+      <div class='luma-footer-links'>
+        <a href='/'>Home</a>
+        <a href='https://luma.app'>Luma App</a>
+        <a href='https://luma.app/privacy'>Privacy Policy</a>
+        <a href='https://luma.app/terms'>Terms of Use</a>
+      </div>
+      <p>© 2026 Luma English • Second Language Acquisition &amp; Speech Science. All rights reserved.</p>
+    </div>
+  </footer>
+</body>
+</html>

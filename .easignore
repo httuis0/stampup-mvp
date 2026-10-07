@@ -1,0 +1,12 @@
+# EAS ignore file (determines what gets uploaded to EAS Build)
+node_modules/
+.expo/
+dist/
+web-build/
+*.orig.*
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+.DS_Store
+*.pem
+*.tsbuildinfo

@@ -1,0 +1,41 @@
+{
+  "expo": {
+    "name": "StampUp",
+    "slug": "stampup",
+    "scheme": "stampup",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.stampup.shop"
+    },
+    "android": {
+      "package": "com.stampup.shop",
+      "adaptiveIcon": {
+        "backgroundColor": "#173A8A",
+        "foregroundImage": "./assets/android-icon-foreground.png"
+      }
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "44b91ac8-b847-422c-9849-4c257ca2723e"
+      }
+    },
+    "plugins": [
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#173A8A"
+        }
+      ]
+    ]
+  }
+}

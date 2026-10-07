@@ -1,0 +1,10 @@
+{
+  "rewrites": [
+    { "source": "/c/:slug*", "destination": "/index.html" },
+    { "source": "/manifest.json", "destination": "/manifest.json" },
+    { "source": "/icon.svg", "destination": "/icon.svg" },
+    { "source": "/icon.png", "destination": "/icon.png" },
+    { "source": "/favicon.png", "destination": "/favicon.png" },
+    { "source": "/flyer.html", "destination": "/flyer.html" }
+  ]
+}

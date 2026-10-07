@@ -1,0 +1,24 @@
+{
+  "name": "StampUp - Digital Loyalty Card",
+  "short_name": "StampUp",
+  "description": "View and track your digital loyalty stamp cards",
+  "start_url": "./",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#F3F4F6",
+  "theme_color": "#2563EB",
+  "icons": [
+    {
+      "src": "/icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

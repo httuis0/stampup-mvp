@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <channel>
+    <title>Luma Sparks — Language Learning &amp; Spoken Fluency Journal</title>
+    <link>https://luma.app/blog</link>
+    <description>Master English fluency through linguistics, neuroscience, and real-world speaking hacks.</description>
+    <language>en-us</language>
+    <lastBuildDate>Tue, 29 Sep 2026 16:20:00 +0000</lastBuildDate>
+    <atom:link href="https://luma.app/blog/feed.xml" rel="self" type="application/rss+xml"/>
+
+    <item>
+      <title>Breaking the Intermediate Plateau: The Ant Colony Spaced-Repetition Method</title>
+      <link>https://luma.app/blog/break-intermediate-plateau</link>
+      <guid isPermaLink="true">https://luma.app/blog/break-intermediate-plateau</guid>
+      <dc:creator>Dr. Elena Vance</dc:creator>
+      <category>Strategies</category>
+      <category>Neuroscience</category>
+      <pubDate>Sat, 26 Sep 2026 12:00:00 +0000</pubDate>
+      <description>Why conventional studying stalls at B1, and how micro-bursts of speech unlock automatic fluency through procedural basal ganglia training.</description>
+    </item>
+
+    <item>
+      <title>The Psychology of Speaking Fear: Lowering Your Affective Filter</title>
+      <link>https://luma.app/blog/overcoming-speaking-anxiety</link>
+      <guid isPermaLink="true">https://luma.app/blog/overcoming-speaking-anxiety</guid>
+      <dc:creator>Marcus Holloway</dc:creator>
+      <category>Speaking</category>
+      <category>Psychology</category>
+      <pubDate>Thu, 24 Sep 2026 10:00:00 +0000</pubDate>
+      <description>How practicing with a judgment-free AI teacher trains the brain to remain composed in live English conversations.</description>
+    </item>
+
+    <item>
+      <title>Stop Memorizing Isolated Words: Why Lexical Chunks Rule Spoken English</title>
+      <link>https://luma.app/blog/stop-memorizing-word-lists</link>
+      <guid isPermaLink="true">https://luma.app/blog/stop-memorizing-word-lists</guid>
+      <dc:creator>Sarah Jenkins</dc:creator>
+      <category>Grammar</category>
+      <category>Vocabulary</category>
+      <pubDate>Tue, 22 Sep 2026 14:00:00 +0000</pubDate>
+      <description>Native speakers don’t construct sentences from abstract grammar rules—they retrieve pre-fabricated lexical frames.</description>
+    </item>
+
+    <item>
+      <title>Why You Can’t Understand Fast Native Speech (And How Connected Speech Fixes It)</title>
+      <link>https://luma.app/blog/connected-speech-secrets</link>
+      <guid isPermaLink="true">https://luma.app/blog/connected-speech-secrets</guid>
+      <dc:creator>David Kim</dc:creator>
+      <category>Speaking</category>
+      <category>Phonetics</category>
+      <pubDate>Sun, 20 Sep 2026 09:30:00 +0000</pubDate>
+      <description>The hidden mechanics of linking, elision, and weak vowel reductions revealed.</description>
+    </item>
+
+    <item>
+      <title>Small Talk Diplomacy: London Politeness vs. New York Directness</title>
+      <link>https://luma.app/blog/london-vs-newyork-subtle-nuances</link>
+      <guid isPermaLink="true">https://luma.app/blog/london-vs-newyork-subtle-nuances</guid>
+      <dc:creator>Claire Montgomery</dc:creator>
+      <category>Culture</category>
+      <category>Travel</category>
+      <pubDate>Fri, 18 Sep 2026 16:15:00 +0000</pubDate>
+      <description>A cultural guide to navigating everyday social situations without causing accidental offense.</description>
+    </item>
+
+    <item>
+      <title>The Neuroscience of Streaks: Why 3 Minutes a Day Beats 2 Hours on Sundays</title>
+      <link>https://luma.app/blog/honey-shield-habit-science</link>
+      <guid isPermaLink="true">https://luma.app/blog/honey-shield-habit-science</guid>
+      <dc:creator>Dr. Aris Thorne</dc:creator>
+      <category>Colony</category>
+      <category>Habits</category>
+      <pubDate>Wed, 16 Sep 2026 08:00:00 +0000</pubDate>
+      <description>How daily synaptic firing creates myelin insulation around language pathways.</description>
+    </item>
+
+    <item>
+      <title>5 Executive Phrasing Formulas for High-Impact Workplace Communication</title>
+      <link>https://luma.app/blog/professional-emails-formulas</link>
+      <guid isPermaLink="true">https://luma.app/blog/professional-emails-formulas</guid>
+      <dc:creator>Victoria Sterling</dc:creator>
+      <category>Grammar</category>
+      <category>Business English</category>
+      <pubDate>Mon, 14 Sep 2026 11:45:00 +0000</pubDate>
+      <description>Transform awkward literal translations into crisp, authoritative, yet cordial professional English.</description>
+    </item>
+
+    <item>
+      <title>The Complete CEFR Fluency Roadmap: Pre-A1 to B2 Timeline &amp; Milestones</title>
+      <link>https://luma.app/blog/cefr-roadmap-realistic-timelines</link>
+      <guid isPermaLink="true">https://luma.app/blog/cefr-roadmap-realistic-timelines</guid>
+      <dc:creator>Julian Ross</dc:creator>
+      <category>Strategies</category>
+      <category>Curriculum</category>
+      <pubDate>Sat, 12 Sep 2026 15:00:00 +0000</pubDate>
+      <description>Guided hour requirements, measurable speaking competencies, and what changes at each level.</description>
+    </item>
+  </channel>
+</rss>

@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- ==========================================================================
+     LUMA ENGLISH — ANDROID NATIVE XML THEME SPECIFICATION
+     Location in Android Project:
+       - res/values/themes.xml (Day / Light Theme)
+       - res/values-night/themes.xml (Night / Dark Theme)
+       - res/values/colors.xml (Brand Palette)
+       - res/values/styles.xml (Reusable Component Styles)
+     ========================================================================== -->
+<resources xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- ======================================================================
+         1. COLORS DEFINITION (res/values/colors.xml)
+         ====================================================================== -->
+    <!-- Primary Palette (Forest Green & Accents) -->
+    <color name="luma_green">#059669</color>
+    <color name="luma_green_dark">#047857</color>
+    <color name="luma_green_light">#ECFDF5</color>
+    <color name="luma_green_container">#D1FAE5</color>
+    
+    <!-- Accent & Progress -->
+    <color name="luma_lime">#10B981</color>
+    <color name="luma_coral">#FF5A36</color>
+    <color name="luma_coral_soft">#FFF1EE</color>
+    <color name="luma_violet">#7C3AED</color>
+    <color name="luma_violet_soft">#F5F3FF</color>
+    <color name="luma_amber">#F59E0B</color>
+    <color name="luma_amber_soft">#FEF3C7</color>
+
+    <!-- Surfaces & Neutrals (Light Mode) -->
+    <color name="luma_cream">#FAF8F5</color>
+    <color name="luma_white">#FFFFFF</color>
+    <color name="luma_ink">#0F172A</color>
+    <color name="luma_ink_sub">#334155</color>
+    <color name="luma_mute">#64748B</color>
+    <color name="luma_line">#E2E8F0</color>
+    <color name="luma_line_soft">#F1F5F9</color>
+
+    <!-- Surfaces & Neutrals (Dark Mode) -->
+    <color name="luma_dark_bg">#090D16</color>
+    <color name="luma_dark_surface">#131B2E</color>
+    <color name="luma_dark_card">#1E293B</color>
+    <color name="luma_dark_line">#334155</color>
+    <color name="luma_dark_text">#F8FAFC</color>
+    <color name="luma_dark_mute">#94A3B8</color>
+
+    <!-- ======================================================================
+         2. LIGHT MODE APPLICATION THEME (res/values/themes.xml)
+         ====================================================================== -->
+    <style name="Theme.Luma" parent="Theme.Material3.Light.NoActionBar">
+        <!-- Brand Colors -->
+        <item name="colorPrimary">@color/luma_green</item>
+        <item name="colorPrimaryVariant">@color/luma_green_dark</item>
+        <item name="colorOnPrimary">@color/luma_white</item>
+        <item name="colorPrimaryContainer">@color/luma_green_container</item>
+        <item name="colorOnPrimaryContainer">@color/luma_green_dark</item>
+        
+        <item name="colorSecondary">@color/luma_lime</item>
+        <item name="colorSecondaryVariant">@color/luma_green</item>
+        <item name="colorOnSecondary">@color/luma_white</item>
+        <item name="colorTertiary">@color/luma_coral</item>
+        <item name="colorOnTertiary">@color/luma_white</item>
+
+        <!-- Window & Surface Backgrounds -->
+        <item name="android:windowBackground">@color/luma_cream</item>
+        <item name="colorSurface">@color/luma_white</item>
+        <item name="colorOnSurface">@color/luma_ink</item>
+        <item name="colorSurfaceVariant">@color/luma_line_soft</item>
+        <item name="colorOnSurfaceVariant">@color/luma_ink_sub</item>
+
+        <!-- System Status Bar -->
+        <item name="android:statusBarColor">@color/luma_cream</item>
+        <item name="android:windowLightStatusBar">true</item>
+
+        <!-- Navigation Bar -->
+        <item name="android:navigationBarColor">@color/luma_white</item>
+        <item name="android:windowLightNavigationBar" tools:targetApi="o_mr1">true</item>
+
+        <!-- Typography & Fonts -->
+        <item name="fontFamily">sans-serif</item>
+        <item name="android:textColorPrimary">@color/luma_ink</item>
+        <item name="android:textColorSecondary">@color/luma_mute</item>
+    </style>
+
+    <!-- ======================================================================
+         3. DARK MODE APPLICATION THEME (res/values-night/themes.xml)
+         ====================================================================== -->
+    <style name="Theme.Luma.Night" parent="Theme.Material3.Dark.NoActionBar">
+        <!-- Brand Colors -->
+        <item name="colorPrimary">@color/luma_lime</item>
+        <item name="colorPrimaryVariant">@color/luma_green</item>
+        <item name="colorOnPrimary">@color/luma_ink</item>
+        <item name="colorPrimaryContainer">@color/luma_green_dark</item>
+        <item name="colorOnPrimaryContainer">@color/luma_green_light</item>
+
+        <item name="colorSecondary">@color/luma_green</item>
+        <item name="colorOnSecondary">@color/luma_white</item>
+        <item name="colorTertiary">@color/luma_coral</item>
+        <item name="colorOnTertiary">@color/luma_white</item>
+
+        <!-- Window & Surface Backgrounds -->
+        <item name="android:windowBackground">@color/luma_dark_bg</item>
+        <item name="colorSurface">@color/luma_dark_surface</item>
+        <item name="colorOnSurface">@color/luma_dark_text</item>
+        <item name="colorSurfaceVariant">@color/luma_dark_card</item>
+        <item name="colorOnSurfaceVariant">@color/luma_dark_mute</item>
+
+        <!-- System Status Bar -->
+        <item name="android:statusBarColor">@color/luma_dark_bg</item>
+        <item name="android:windowLightStatusBar">false</item>
+
+        <!-- Navigation Bar -->
+        <item name="android:navigationBarColor">@color/luma_dark_surface</item>
+        <item name="android:windowLightNavigationBar" tools:targetApi="o_mr1">false</item>
+
+        <!-- Typography & Fonts -->
+        <item name="fontFamily">sans-serif</item>
+        <item name="android:textColorPrimary">@color/luma_dark_text</item>
+        <item name="android:textColorSecondary">@color/luma_dark_mute</item>
+    </style>
+
+    <!-- ======================================================================
+         4. SPLASH SCREEN THEME (Android 12+ SplashScreen API)
+         ====================================================================== -->
+    <style name="Theme.Luma.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/luma_green_dark</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_icon</item>
+        <item name="postSplashScreenTheme">@style/Theme.Luma</item>
+    </style>
+
+    <!-- ======================================================================
+         5. REUSABLE COMPONENT STYLES
+         ====================================================================== -->
+    <!-- Primary Pill Button Style -->
+    <style name="Widget.Luma.Button.Primary" parent="Widget.Material3.Button">
+        <item name="backgroundTint">@color/luma_lime</item>
+        <item name="android:textColor">#173A2E</item>
+        <item name="android:textStyle">bold</item>
+        <item name="cornerRadius">18dp</item>
+        <item name="android:minHeight">56dp</item>
+        <item name="elevation">4dp</item>
+    </style>
+
+    <!-- Secondary Outline Button Style -->
+    <style name="Widget.Luma.Button.Outlined" parent="Widget.Material3.Button.OutlinedButton">
+        <item name="strokeColor">@color/luma_line</item>
+        <item name="strokeWidth">1.5dp</item>
+        <item name="android:textColor">@color/luma_ink</item>
+        <item name="cornerRadius">18dp</item>
+        <item name="android:minHeight">52dp</item>
+    </style>
+
+    <!-- Ant Colony Card Style -->
+    <style name="Widget.Luma.Card" parent="Widget.Material3.CardView.Elevated">
+        <item name="cardBackgroundColor">@color/luma_white</item>
+        <item name="cardCornerRadius">20dp</item>
+        <item name="cardElevation">2dp</item>
+        <item name="strokeColor">@color/luma_line</item>
+        <item name="strokeWidth">1dp</item>
+    </style>
+
+</resources>
