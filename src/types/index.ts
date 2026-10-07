@@ -10,6 +10,12 @@ export interface Shop {
   stamps_required: number;
   reward_text: string;
   default_country_code?: string;
+  shop_number?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  google_maps_url?: string | null;
   created_at: string;
 }
 

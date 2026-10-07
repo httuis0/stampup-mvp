@@ -544,6 +544,12 @@
     <div class="header">
       <div class="badge">StampUp Loyalty Card</div>
       <h1 class="shop-title" id="shopName">Loading Shop...</h1>
+      <div id="shopMetaContainer" style="display: none; align-items: center; justify-content: center; gap: 8px; margin-top: 6px; flex-wrap: wrap;">
+        <span id="shopNumberTag" style="display: none; background: #EEF2F6; color: #475569; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 700;"></span>
+        <a id="shopMapLink" href="#" target="_blank" rel="noopener noreferrer" style="display: none; background: #EFF6FF; color: #2563EB; border: 1px solid #BFDBFE; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; text-decoration: none; align-items: center; gap: 4px;">
+          📍 <span id="shopMapText">View on Google Maps</span> ↗
+        </a>
+      </div>
     </div>
 
     <!-- Error Alert Box -->
@@ -994,6 +1000,31 @@
             shopNameEl.textContent = data.shop_name;
             rewardText.textContent = `At ${data.stamps_required} stamps: ${data.reward_text}`;
             document.title = `${data.shop_name} - Loyalty Stamp Card`;
+
+            // Display shop number & location on Google Maps if configured
+            if (data.shop_number || data.address || data.google_maps_url) {
+              const metaCont = document.getElementById('shopMetaContainer');
+              const numTag = document.getElementById('shopNumberTag');
+              const mapLink = document.getElementById('shopMapLink');
+              const mapText = document.getElementById('shopMapText');
+
+              if (metaCont) metaCont.style.display = 'flex';
+              if (data.shop_number && numTag) {
+                numTag.textContent = data.shop_number;
+                numTag.style.display = 'inline-block';
+              }
+              if (mapLink) {
+                const url = data.google_maps_url || (data.address ? `https://maps.google.com/?q=${encodeURIComponent(data.address)}` : null);
+                if (url) {
+                  mapLink.href = url;
+                  mapLink.style.display = 'inline-flex';
+                  if (data.address && mapText) {
+                    mapText.textContent = data.address.split(',')[0].trim() || 'View on Google Maps';
+                  }
+                }
+              }
+            }
+
             try { localStorage.setItem('stampup_active_slug', currentSlug); } catch(e){}
             updateDynamicManifest(data.shop_name, phoneInput.value.trim(), countrySelect.value);
 

@@ -24,6 +24,7 @@ import { APP_CONFIG } from '../constants/config';
 import { ShopQRCode } from '../components/ShopQRCode';
 import { CountryPickerModal } from '../components/CountryPickerModal';
 import { COUNTRIES, Country, findCountryByDialCode, DEFAULT_COUNTRY } from '../utils/countries';
+import { GoogleMapPicker, LocationData } from '../components/GoogleMapPicker';
 import { generateShopSlug } from '../utils/slug';
 import type { Shop } from '../types';
 
@@ -59,6 +60,12 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
   // Shop Details State
   const [shopName, setShopName] = useState<string>(shop.name);
+  const [shopNumber, setShopNumber] = useState<string>(shop.shop_number || '');
+  const [shopPhone, setShopPhone] = useState<string>(shop.phone || '');
+  const [shopAddress, setShopAddress] = useState<string>(shop.address || '');
+  const [shopLatitude, setShopLatitude] = useState<number | null>(shop.latitude || null);
+  const [shopLongitude, setShopLongitude] = useState<number | null>(shop.longitude || null);
+  const [shopGoogleMapsUrl, setShopGoogleMapsUrl] = useState<string | null>(shop.google_maps_url || null);
   const [stampsRequired, setStampsRequired] = useState<number>(shop.stamps_required);
   const [rewardText, setRewardText] = useState<string>(shop.reward_text);
   const [selectedCountry, setSelectedCountry] = useState<Country>(
@@ -77,6 +84,12 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
   // New branch form
   const [newBranchName, setNewBranchName] = useState<string>('');
+  const [newBranchNumber, setNewBranchNumber] = useState<string>('');
+  const [newBranchPhone, setNewBranchPhone] = useState<string>('');
+  const [newBranchAddress, setNewBranchAddress] = useState<string>('');
+  const [newBranchLatitude, setNewBranchLatitude] = useState<number | null>(null);
+  const [newBranchLongitude, setNewBranchLongitude] = useState<number | null>(null);
+  const [newBranchGoogleMapsUrl, setNewBranchGoogleMapsUrl] = useState<string | null>(null);
   const [newBranchStamps, setNewBranchStamps] = useState<number>(APP_CONFIG.DEFAULT_STAMPS_REQUIRED);
   const [newBranchReward, setNewBranchReward] = useState<string>('Free item');
   const [creatingBranch, setCreatingBranch] = useState<boolean>(false);
@@ -89,6 +102,12 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   // Sync state if active shop changes
   useEffect(() => {
     setShopName(shop.name);
+    setShopNumber(shop.shop_number || '');
+    setShopPhone(shop.phone || '');
+    setShopAddress(shop.address || '');
+    setShopLatitude(shop.latitude || null);
+    setShopLongitude(shop.longitude || null);
+    setShopGoogleMapsUrl(shop.google_maps_url || null);
     setStampsRequired(shop.stamps_required);
     setRewardText(shop.reward_text);
     setSelectedCountry(findCountryByDialCode(shop.default_country_code || '+971'));
@@ -124,20 +143,51 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     setLoading(true);
 
     try {
+      const payload: any = {
+        name: shopName.trim(),
+        stamps_required: stampsRequired,
+        reward_text: rewardText.trim(),
+        default_country_code: selectedCountry.dialCode,
+        shop_number: shopNumber.trim() || null,
+        phone: shopPhone.trim() || null,
+        address: shopAddress.trim() || null,
+        latitude: shopLatitude,
+        longitude: shopLongitude,
+        google_maps_url: shopGoogleMapsUrl,
+      };
+
       const { data, error } = await supabase
         .from('shops')
-        .update({
-          name: shopName.trim(),
-          stamps_required: stampsRequired,
-          reward_text: rewardText.trim(),
-          default_country_code: selectedCountry.dialCode,
-        })
+        .update(payload)
         .eq('id', shop.id)
         .select()
         .single();
 
       if (error) {
-        setErrorMessage(error.message || strings.common.error);
+        // Fallback if DB columns are not yet added
+        if (error.message && (error.message.includes('column') || error.message.includes('schema'))) {
+          const fallbackPayload = {
+            name: shopName.trim(),
+            stamps_required: stampsRequired,
+            reward_text: rewardText.trim(),
+            default_country_code: selectedCountry.dialCode,
+          };
+          const { data: fbData, error: fbError } = await supabase
+            .from('shops')
+            .update(fallbackPayload)
+            .eq('id', shop.id)
+            .select()
+            .single();
+
+          if (fbError) {
+            setErrorMessage(fbError.message);
+          } else if (fbData) {
+            onShopUpdated(fbData as Shop);
+            setSuccessMessage('Shop details updated successfully!');
+          }
+        } else {
+          setErrorMessage(error.message || strings.common.error);
+        }
       } else if (data) {
         onShopUpdated(data as Shop);
         setSuccessMessage('Shop details updated successfully!');
@@ -160,25 +210,66 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
     try {
       const slug = generateShopSlug(newBranchName);
+
+      const branchPayload: any = {
+        owner_id: shop.owner_id,
+        name: newBranchName.trim(),
+        slug: slug,
+        stamps_required: newBranchStamps,
+        reward_text: newBranchReward.trim(),
+        default_country_code: selectedCountry.dialCode,
+        shop_number: newBranchNumber.trim() || null,
+        phone: newBranchPhone.trim() || null,
+        address: newBranchAddress.trim() || null,
+        latitude: newBranchLatitude,
+        longitude: newBranchLongitude,
+        google_maps_url: newBranchGoogleMapsUrl,
+      };
+
       const { data, error } = await supabase
         .from('shops')
-        .insert({
-          owner_id: shop.owner_id,
-          name: newBranchName.trim(),
-          slug: slug,
-          stamps_required: newBranchStamps,
-          reward_text: newBranchReward.trim(),
-          default_country_code: selectedCountry.dialCode,
-        })
+        .insert(branchPayload)
         .select()
         .single();
 
       if (error) {
-        Alert.alert('Error', error.message || strings.common.error);
+        // Fallback if DB columns not yet added
+        if (error.message && (error.message.includes('column') || error.message.includes('schema'))) {
+          const fallbackBranch = {
+            owner_id: shop.owner_id,
+            name: newBranchName.trim(),
+            slug: slug,
+            stamps_required: newBranchStamps,
+            reward_text: newBranchReward.trim(),
+            default_country_code: selectedCountry.dialCode,
+          };
+          const { data: fbData, error: fbError } = await supabase
+            .from('shops')
+            .insert(fallbackBranch)
+            .select()
+            .single();
+
+          if (fbError) {
+            Alert.alert('Error', fbError.message);
+          } else if (fbData) {
+            onShopCreated(fbData as Shop);
+            setNewBranchModalVisible(false);
+            setNewBranchName('');
+            setNewBranchNumber('');
+            setNewBranchPhone('');
+            setNewBranchAddress('');
+            Alert.alert('Success 🎉', `Branch "${fbData.name}" created!`);
+          }
+        } else {
+          Alert.alert('Error', error.message || strings.common.error);
+        }
       } else if (data) {
         onShopCreated(data as Shop);
         setNewBranchModalVisible(false);
         setNewBranchName('');
+        setNewBranchNumber('');
+        setNewBranchPhone('');
+        setNewBranchAddress('');
         Alert.alert('Success 🎉', `Branch "${data.name}" created!`);
       }
     } catch (err: any) {
@@ -310,6 +401,41 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 placeholder="e.g. Chai Corner"
                 placeholderTextColor="#9CA3AF"
                 editable={!loading}
+              />
+
+              <Text style={styles.inputLabel}>Shop / Unit Number (Optional):</Text>
+              <TextInput
+                style={styles.input}
+                value={shopNumber}
+                onChangeText={setShopNumber}
+                placeholder="e.g. Shop #14, Ground Floor"
+                placeholderTextColor="#9CA3AF"
+                editable={!loading}
+              />
+
+              <Text style={styles.inputLabel}>Shop Contact Phone (Optional):</Text>
+              <TextInput
+                style={styles.input}
+                value={shopPhone}
+                onChangeText={setShopPhone}
+                placeholder="e.g. +971 50 123 4567"
+                placeholderTextColor="#9CA3AF"
+                keyboardType="phone-pad"
+                editable={!loading}
+              />
+
+              {/* Location on Google Maps */}
+              <Text style={styles.inputLabel}>Shop Location (Real Google Map):</Text>
+              <GoogleMapPicker
+                initialAddress={shopAddress}
+                initialLatitude={shopLatitude}
+                initialLongitude={shopLongitude}
+                onLocationSelect={(data) => {
+                  setShopAddress(data.address);
+                  setShopLatitude(data.latitude);
+                  setShopLongitude(data.longitude);
+                  setShopGoogleMapsUrl(data.googleMapsUrl);
+                }}
               />
 
               <Text style={styles.inputLabel}>Stamps Required for Reward:</Text>
@@ -575,13 +701,46 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             <ScrollView contentContainerStyle={styles.modalContent}>
               <Text style={styles.modalTitle}>🏬 Add New Branch / Shop</Text>
 
-              <Text style={styles.inputLabel}>Branch Name:</Text>
+              <Text style={styles.inputLabel}>Branch Name *:</Text>
               <TextInput
                 style={styles.input}
                 placeholder="e.g. Chai Corner - Downtown"
                 placeholderTextColor="#9CA3AF"
                 value={newBranchName}
                 onChangeText={setNewBranchName}
+              />
+
+              <Text style={styles.inputLabel}>Shop / Unit Number (Optional):</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g. Unit G-12, Food Court"
+                placeholderTextColor="#9CA3AF"
+                value={newBranchNumber}
+                onChangeText={setNewBranchNumber}
+              />
+
+              <Text style={styles.inputLabel}>Shop Contact Phone (Optional):</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g. +971 50 987 6543"
+                placeholderTextColor="#9CA3AF"
+                keyboardType="phone-pad"
+                value={newBranchPhone}
+                onChangeText={setNewBranchPhone}
+              />
+
+              {/* Location via Real Google Map Picker */}
+              <Text style={styles.inputLabel}>Branch Location (Real Google Map):</Text>
+              <GoogleMapPicker
+                initialAddress={newBranchAddress}
+                initialLatitude={newBranchLatitude}
+                initialLongitude={newBranchLongitude}
+                onLocationSelect={(data) => {
+                  setNewBranchAddress(data.address);
+                  setNewBranchLatitude(data.latitude);
+                  setNewBranchLongitude(data.longitude);
+                  setNewBranchGoogleMapsUrl(data.googleMapsUrl);
+                }}
               />
 
               <Text style={styles.inputLabel}>Stamps Required: ({newBranchStamps})</Text>
