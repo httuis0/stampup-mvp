@@ -1,5 +1,5 @@
 // ============================================================
-// Screen 5: Settings Screen (Pipeline Organized)
+// Screen: Settings Screen (Pipeline Organized)
 // Multi-Shop Branch Switcher, Country Selector, Secure Manager PIN,
 // In-App QR Code & Printable Flyer, Clean Privacy Policy, and Logout.
 // ============================================================
@@ -23,8 +23,8 @@ import { strings } from '../constants/strings';
 import { APP_CONFIG } from '../constants/config';
 import { ShopQRCode } from '../components/ShopQRCode';
 import { CountryPickerModal } from '../components/CountryPickerModal';
-import { COUNTRIES, Country, findCountryByDialCode, DEFAULT_COUNTRY } from '../utils/countries';
-import { GoogleMapPicker, LocationData } from '../components/GoogleMapPicker';
+import { Country, findCountryByDialCode } from '../utils/countries';
+import { GoogleMapPicker } from '../components/GoogleMapPicker';
 import { generateShopSlug } from '../utils/slug';
 import type { Shop } from '../types';
 
@@ -42,6 +42,15 @@ interface SettingsScreenProps {
   onUpdatePin: (newPin: string) => void;
   onLogout: () => void;
 }
+
+// Generate initials for shop avatar
+const getShopInitials = (name: string): string => {
+  const words = (name || '').trim().split(/\s+/);
+  if (words.length >= 2) {
+    return (words[0][0] + words[1][0]).toUpperCase();
+  }
+  return (name || 'SH').slice(0, 2).toUpperCase();
+};
 
 export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   shop,
@@ -95,7 +104,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   const [newBranchReward, setNewBranchReward] = useState<string>('Free item');
   const [creatingBranch, setCreatingBranch] = useState<boolean>(false);
 
-  // PIN Change Form (Old PIN, New PIN, Confirm PIN)
+  // PIN Change Form
   const [oldPinInput, setOldPinInput] = useState<string>('');
   const [newPinInput, setNewPinInput] = useState<string>('');
   const [confirmPinInput, setConfirmPinInput] = useState<string>('');
@@ -166,7 +175,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         .single();
 
       if (error) {
-        // Fallback if DB columns are not yet added
         if (error.message && (error.message.includes('column') || error.message.includes('schema'))) {
           const fallbackPayload = {
             name: shopName.trim(),
@@ -237,7 +245,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         .single();
 
       if (error) {
-        // Fallback if DB columns not yet added
         if (error.message && (error.message.includes('column') || error.message.includes('schema'))) {
           const fallbackBranch = {
             owner_id: shop.owner_id,
@@ -317,20 +324,24 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
   return (
     <View style={styles.container}>
-      {/* Title */}
+      {/* Top Header */}
       <View style={styles.topHeader}>
-        <Text style={styles.screenTitle}>{strings.settings.title}</Text>
-        <Text style={styles.shopBadge}>{shop.name}</Text>
+        <View style={styles.topHeaderLeft}>
+          <Text style={styles.screenTitle}>Settings</Text>
+          <Text style={styles.screenSubtitle}>Manage shops, locations & security</Text>
+        </View>
+        <View style={styles.activeShopPill}>
+          <Text style={styles.activeShopPillText} numberOfLines={1}>{shop.name}</Text>
+        </View>
       </View>
 
-      {/* -------------------------------------------------------- */}
       {/* PIPELINE NAVIGATION BAR (Tabbed Sections) */}
-      {/* -------------------------------------------------------- */}
       <View style={styles.pipelineBar}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.pipelineScroll}>
           <TouchableOpacity
             style={[styles.pipelineTab, activeTab === 'shop' && styles.pipelineTabActive]}
             onPress={() => setActiveTab('shop')}
+            activeOpacity={0.7}
           >
             <Text style={[styles.pipelineTabText, activeTab === 'shop' && styles.pipelineTabTextActive]}>
               🏬 Shop & Branches
@@ -340,6 +351,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           <TouchableOpacity
             style={[styles.pipelineTab, activeTab === 'region' && styles.pipelineTabActive]}
             onPress={() => setActiveTab('region')}
+            activeOpacity={0.7}
           >
             <Text style={[styles.pipelineTabText, activeTab === 'region' && styles.pipelineTabTextActive]}>
               🌍 Region ({selectedCountry.flag})
@@ -349,6 +361,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           <TouchableOpacity
             style={[styles.pipelineTab, activeTab === 'security' && styles.pipelineTabActive]}
             onPress={() => setActiveTab('security')}
+            activeOpacity={0.7}
           >
             <Text style={[styles.pipelineTabText, activeTab === 'security' && styles.pipelineTabTextActive]}>
               🛡️ Cashier & PIN
@@ -358,6 +371,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           <TouchableOpacity
             style={[styles.pipelineTab, activeTab === 'qr' && styles.pipelineTabActive]}
             onPress={() => setActiveTab('qr')}
+            activeOpacity={0.7}
           >
             <Text style={[styles.pipelineTabText, activeTab === 'qr' && styles.pipelineTabTextActive]}>
               📱 QR & Stand
@@ -367,6 +381,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           <TouchableOpacity
             style={[styles.pipelineTab, activeTab === 'account' && styles.pipelineTabActive]}
             onPress={() => setActiveTab('account')}
+            activeOpacity={0.7}
           >
             <Text style={[styles.pipelineTabText, activeTab === 'account' && styles.pipelineTabTextActive]}>
               ⚖️ Legal & Account
@@ -375,16 +390,16 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         </ScrollView>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
-        {/* Status Messages */}
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Status Notification Messages */}
         {errorMessage && (
           <View style={styles.errorBox}>
-            <Text style={styles.errorText}>{errorMessage}</Text>
+            <Text style={styles.errorText}>⚠️ {errorMessage}</Text>
           </View>
         )}
         {successMessage && (
           <View style={styles.successBox}>
-            <Text style={styles.successText}>{successMessage}</Text>
+            <Text style={styles.successText}>✓ {successMessage}</Text>
           </View>
         )}
 
@@ -393,44 +408,48 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         {/* -------------------------------------------------------- */}
         {activeTab === 'shop' && (
           <View>
-            {/* Active Shop Section */}
+            {/* Active Shop Overview Card */}
             <View style={styles.card}>
               <View style={styles.shopOverviewHeader}>
+                <View style={styles.shopAvatarSquircle}>
+                  <Text style={styles.shopAvatarText}>{getShopInitials(shop.name)}</Text>
+                </View>
                 <View style={{ flex: 1 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                     <Text style={styles.shopOverviewTitle}>{shop.name}</Text>
                     <View style={styles.activeBadge}>
-                      <Text style={styles.activeBadgeText}>✓ Active Shop</Text>
+                      <Text style={styles.activeBadgeText}>Active Shop</Text>
                     </View>
                   </View>
-                  <Text style={styles.shopItemSlug}>URL Slug: /{shop.slug}</Text>
+                  <Text style={styles.shopItemSlug}>/{shop.slug}</Text>
                 </View>
 
                 {!isEditingShopDetails && (
                   <TouchableOpacity
                     style={styles.editShopBtn}
                     onPress={() => setIsEditingShopDetails(true)}
+                    activeOpacity={0.7}
                   >
-                    <Text style={styles.editShopBtnText}>✏️ Edit Details</Text>
+                    <Text style={styles.editShopBtnText}>✏️ Edit</Text>
                   </TouchableOpacity>
                 )}
               </View>
 
               {!isEditingShopDetails ? (
-                /* Collapsed / Clean Shop Overview */
+                /* Collapsed / Clean Shop Overview Grid */
                 <View style={styles.shopOverviewDetails}>
                   <View style={styles.overviewRow}>
-                    <Text style={styles.overviewLabel}>🏢 Unit / Shop #:</Text>
+                    <Text style={styles.overviewLabel}>🏢 Unit / Shop #</Text>
                     <Text style={styles.overviewValue}>{shop.shop_number || 'Not specified'}</Text>
                   </View>
 
                   <View style={styles.overviewRow}>
-                    <Text style={styles.overviewLabel}>📞 Contact Phone:</Text>
+                    <Text style={styles.overviewLabel}>📞 Contact Phone</Text>
                     <Text style={styles.overviewValue}>{shop.phone || 'Not specified'}</Text>
                   </View>
 
                   <View style={styles.overviewRow}>
-                    <Text style={styles.overviewLabel}>📍 Location:</Text>
+                    <Text style={styles.overviewLabel}>📍 Location</Text>
                     <View style={{ flex: 1, alignItems: 'flex-end' }}>
                       <Text style={styles.overviewValue}>{shop.address || 'Address not configured'}</Text>
                       {shop.google_maps_url ? (
@@ -444,18 +463,18 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                     </View>
                   </View>
 
-                  <View style={styles.overviewRow}>
-                    <Text style={styles.overviewLabel}>🎯 Reward Rule:</Text>
+                  <View style={[styles.overviewRow, { borderBottomWidth: 0 }]}>
+                    <Text style={styles.overviewLabel}>🎯 Reward Rule</Text>
                     <Text style={styles.overviewValue}>
                       {shop.stamps_required} stamps = {shop.reward_text}
                     </Text>
                   </View>
                 </View>
               ) : (
-                /* Expanded Edit Form (Only visible when Edit is pressed) */
-                <View style={{ marginTop: 12 }}>
+                /* Expanded Edit Form */
+                <View style={{ marginTop: 14 }}>
                   <Text style={styles.cardSubtitle}>
-                    Update your shop profile and location. Customers will see these details on their digital card.
+                    Update your shop profile and map location. Customers will see these details on their digital pass.
                   </Text>
 
                   <Text style={styles.inputLabel}>Shop Name:</Text>
@@ -464,7 +483,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                     value={shopName}
                     onChangeText={setShopName}
                     placeholder="e.g. Chai Corner"
-                    placeholderTextColor="#9CA3AF"
+                    placeholderTextColor="#94A3B8"
                     editable={!loading}
                   />
 
@@ -474,7 +493,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                     value={shopNumber}
                     onChangeText={setShopNumber}
                     placeholder="e.g. Shop #14, Ground Floor"
-                    placeholderTextColor="#9CA3AF"
+                    placeholderTextColor="#94A3B8"
                     editable={!loading}
                   />
 
@@ -484,7 +503,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                     value={shopPhone}
                     onChangeText={setShopPhone}
                     placeholder="e.g. +971 50 123 4567"
-                    placeholderTextColor="#9CA3AF"
+                    placeholderTextColor="#94A3B8"
                     keyboardType="phone-pad"
                     editable={!loading}
                   />
@@ -533,7 +552,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                     value={rewardText}
                     onChangeText={setRewardText}
                     placeholder="e.g. Free karak chai or coffee"
-                    placeholderTextColor="#9CA3AF"
+                    placeholderTextColor="#94A3B8"
                     editable={!loading}
                   />
 
@@ -547,7 +566,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                     </TouchableOpacity>
 
                     <TouchableOpacity
-                      style={[styles.outlineButton, { flex: 0.7, marginTop: 0 }]}
+                      style={[styles.outlineButton, { flex: 0.7, marginTop: 0, marginBottom: 0 }]}
                       onPress={() => {
                         setIsEditingShopDetails(false);
                         setShopName(shop.name);
@@ -572,14 +591,20 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             {/* My Branches Section */}
             <View style={styles.card}>
               <View style={styles.cardHeaderRow}>
-                <Text style={styles.cardTitle}>🏬 My Shops & Branches</Text>
-                <TouchableOpacity style={styles.smallAddBtn} onPress={() => setNewBranchModalVisible(true)}>
+                <View>
+                  <Text style={styles.cardTitle}>My Shops & Branches</Text>
+                  <Text style={styles.cardSubtitle}>
+                    Manage all your branch locations and switch anytime.
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.smallAddBtn}
+                  onPress={() => setNewBranchModalVisible(true)}
+                  activeOpacity={0.7}
+                >
                   <Text style={styles.smallAddBtnText}>+ Add Branch</Text>
                 </TouchableOpacity>
               </View>
-              <Text style={styles.cardSubtitle}>
-                Manage all your locations. Switch between branches anytime.
-              </Text>
 
               {shops.map((s) => {
                 const isActive = s.id === shop.id;
@@ -589,7 +614,14 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                     style={[styles.shopItemRow, isActive && styles.shopItemRowActive]}
                     onPress={() => onSelectShop(s)}
                     disabled={isActive}
+                    activeOpacity={0.7}
                   >
+                    <View style={[styles.branchAvatarSquircle, isActive && styles.branchAvatarSquircleActive]}>
+                      <Text style={[styles.branchAvatarText, isActive && styles.branchAvatarTextActive]}>
+                        {getShopInitials(s.name)}
+                      </Text>
+                    </View>
+
                     <View style={styles.shopItemInfo}>
                       <Text style={[styles.shopItemName, isActive && styles.shopItemNameActive]}>{s.name}</Text>
                       <Text style={styles.shopItemSlug}>/{s.slug}</Text>
@@ -599,10 +631,12 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                     </View>
                     {isActive ? (
                       <View style={styles.activeBadge}>
-                        <Text style={styles.activeBadgeText}>✓ Active</Text>
+                        <Text style={styles.activeBadgeText}>Active</Text>
                       </View>
                     ) : (
-                      <Text style={styles.switchText}>Switch</Text>
+                      <View style={styles.switchPill}>
+                        <Text style={styles.switchText}>Switch</Text>
+                      </View>
                     )}
                   </TouchableOpacity>
                 );
@@ -621,19 +655,26 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               Sets the default country code and strict phone number format used by cashiers when adding customer stamps.
             </Text>
 
-            <TouchableOpacity style={styles.countrySelectBox} onPress={() => setCountryModalVisible(true)}>
+            <TouchableOpacity
+              style={styles.countrySelectBox}
+              onPress={() => setCountryModalVisible(true)}
+              activeOpacity={0.7}
+            >
               <Text style={styles.countrySelectFlag}>{selectedCountry.flag}</Text>
               <View style={styles.countrySelectInfo}>
                 <Text style={styles.countrySelectName}>{selectedCountry.name}</Text>
                 <Text style={styles.countrySelectFormat}>Code: {selectedCountry.dialCode} • Format: {selectedCountry.format}</Text>
               </View>
-              <Text style={styles.changeCountryBtnText}>Change ▾</Text>
+              <View style={styles.changeCountryPill}>
+                <Text style={styles.changeCountryBtnText}>Change ▾</Text>
+              </View>
             </TouchableOpacity>
 
             <TouchableOpacity
               style={[styles.primaryButton, loading && styles.buttonDisabled, { marginTop: 20 }]}
               onPress={handleSaveShopDetails}
               disabled={loading}
+              activeOpacity={0.7}
             >
               {loading ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={styles.primaryButtonText}>Save Country Setting</Text>}
             </TouchableOpacity>
@@ -650,18 +691,26 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               Cashier Mode locks the app to the Add Stamp screen. Cashiers cannot view settings, switch shops, or delete customers without your 4-digit PIN.
             </Text>
 
-            {/* Secure PIN Display: NEVER displays actual digits */}
+            {/* Secure PIN Status Box */}
             <View style={styles.securePinBox}>
               <View>
                 <Text style={styles.securePinLabel}>Manager PIN Status</Text>
                 <Text style={styles.securePinMasked}>•••• (Active & Encrypted)</Text>
               </View>
-              <TouchableOpacity style={styles.changePinButton} onPress={() => setChangePinModalVisible(true)}>
+              <TouchableOpacity
+                style={styles.changePinButton}
+                onPress={() => setChangePinModalVisible(true)}
+                activeOpacity={0.7}
+              >
                 <Text style={styles.changePinButtonText}>Change PIN</Text>
               </TouchableOpacity>
             </View>
 
-            <TouchableOpacity style={styles.cashierModeButton} onPress={onEnterCashierMode}>
+            <TouchableOpacity
+              style={styles.cashierModeButton}
+              onPress={onEnterCashierMode}
+              activeOpacity={0.7}
+            >
               <Text style={styles.cashierModeButtonText}>🔒 Enter Cashier Mode Now</Text>
             </TouchableOpacity>
           </View>
@@ -679,7 +728,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
             <ShopQRCode shopName={shop.name} customerLink={customerLink} />
 
-            <TouchableOpacity style={styles.secondaryButton} onPress={handleCopyLink}>
+            <TouchableOpacity style={styles.secondaryButton} onPress={handleCopyLink} activeOpacity={0.7}>
               <Text style={styles.secondaryButtonText}>
                 {copiedNotification ? '✓ Link Copied to Clipboard!' : '📋 Copy Customer Link'}
               </Text>
@@ -691,6 +740,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 const flyerUrl = `${customerWebBase.replace(/\/+$/, '')}/flyer.html?shop=${shop.slug}&name=${encodeURIComponent(shop.name)}&reward=${encodeURIComponent(shop.reward_text)}&stamps=${shop.stamps_required}`;
                 Linking.openURL(flyerUrl);
               }}
+              activeOpacity={0.7}
             >
               <Text style={styles.printFlyerButtonText}>
                 🖨️ Open Clean Tabletop Counter Flyer
@@ -706,7 +756,11 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           <View style={styles.card}>
             <Text style={styles.cardTitle}>⚖️ Legal, Privacy & Account</Text>
 
-            <TouchableOpacity style={styles.outlineButton} onPress={() => setPrivacyModalVisible(true)}>
+            <TouchableOpacity
+              style={styles.outlineButton}
+              onPress={() => setPrivacyModalVisible(true)}
+              activeOpacity={0.7}
+            >
               <Text style={styles.outlineButtonText}>📄 View Customer Privacy Policy</Text>
             </TouchableOpacity>
 
@@ -715,7 +769,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             <Text style={styles.accountLabel}>{strings.auth.loggedInAs}:</Text>
             <Text style={styles.accountEmail}>{userEmail}</Text>
 
-            <TouchableOpacity style={styles.logoutButton} onPress={onLogout}>
+            <TouchableOpacity style={styles.logoutButton} onPress={onLogout} activeOpacity={0.7}>
               <Text style={styles.logoutButtonText}>{strings.settings.logout}</Text>
             </TouchableOpacity>
           </View>
@@ -725,7 +779,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
       {/* -------------------------------------------------------- */}
       {/* MODAL: CHANGE MANAGER PIN */}
       {/* -------------------------------------------------------- */}
-      <Modal visible={changePinModalVisible} animationType="slide" transparent={true} onRequestClose={() => setChangePinModalVisible(false)}>
+      <Modal visible={changePinModalVisible} animationType="fade" transparent={true} onRequestClose={() => setChangePinModalVisible(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
             <Text style={styles.modalTitle}>🔒 Change Manager PIN</Text>
@@ -740,7 +794,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               value={oldPinInput}
               onChangeText={(t) => setOldPinInput(t.replace(/[^0-9]/g, '').slice(0, 4))}
               placeholder="••••"
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor="#94A3B8"
             />
 
             <Text style={styles.inputLabel}>New 4-Digit PIN:</Text>
@@ -752,7 +806,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               value={newPinInput}
               onChangeText={(t) => setNewPinInput(t.replace(/[^0-9]/g, '').slice(0, 4))}
               placeholder="••••"
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor="#94A3B8"
             />
 
             <Text style={styles.inputLabel}>Confirm New 4-Digit PIN:</Text>
@@ -764,10 +818,10 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               value={confirmPinInput}
               onChangeText={(t) => setConfirmPinInput(t.replace(/[^0-9]/g, '').slice(0, 4))}
               placeholder="••••"
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor="#94A3B8"
             />
 
-            <TouchableOpacity style={styles.primaryButton} onPress={handleSavePin}>
+            <TouchableOpacity style={styles.primaryButton} onPress={handleSavePin} activeOpacity={0.7}>
               <Text style={styles.primaryButtonText}>Save New PIN</Text>
             </TouchableOpacity>
 
@@ -779,6 +833,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 setNewPinInput('');
                 setConfirmPinInput('');
               }}
+              activeOpacity={0.7}
             >
               <Text style={styles.closeModalButtonText}>Cancel</Text>
             </TouchableOpacity>
@@ -792,14 +847,15 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
       <Modal visible={newBranchModalVisible} animationType="slide" transparent={true} onRequestClose={() => setNewBranchModalVisible(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
-            <ScrollView contentContainerStyle={styles.modalContent}>
+            <ScrollView contentContainerStyle={styles.modalContent} showsVerticalScrollIndicator={false}>
               <Text style={styles.modalTitle}>🏬 Add New Branch / Shop</Text>
+              <Text style={styles.modalSubtitle}>Create a new branch with its own loyalty cards and location.</Text>
 
               <Text style={styles.inputLabel}>Branch Name *:</Text>
               <TextInput
                 style={styles.input}
                 placeholder="e.g. Chai Corner - Downtown"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor="#94A3B8"
                 value={newBranchName}
                 onChangeText={setNewBranchName}
               />
@@ -808,7 +864,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               <TextInput
                 style={styles.input}
                 placeholder="e.g. Unit G-12, Food Court"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor="#94A3B8"
                 value={newBranchNumber}
                 onChangeText={setNewBranchNumber}
               />
@@ -817,7 +873,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               <TextInput
                 style={styles.input}
                 placeholder="e.g. +971 50 987 6543"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor="#94A3B8"
                 keyboardType="phone-pad"
                 value={newBranchPhone}
                 onChangeText={setNewBranchPhone}
@@ -858,16 +914,25 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               <TextInput
                 style={styles.input}
                 placeholder="e.g. Free chai"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor="#94A3B8"
                 value={newBranchReward}
                 onChangeText={setNewBranchReward}
               />
 
-              <TouchableOpacity style={styles.primaryButton} onPress={handleCreateBranch} disabled={creatingBranch}>
+              <TouchableOpacity
+                style={styles.primaryButton}
+                onPress={handleCreateBranch}
+                disabled={creatingBranch}
+                activeOpacity={0.7}
+              >
                 {creatingBranch ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text style={styles.primaryButtonText}>Create Branch</Text>}
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.closeModalButton} onPress={() => setNewBranchModalVisible(false)}>
+              <TouchableOpacity
+                style={styles.closeModalButton}
+                onPress={() => setNewBranchModalVisible(false)}
+                activeOpacity={0.7}
+              >
                 <Text style={styles.closeModalButtonText}>Cancel</Text>
               </TouchableOpacity>
             </ScrollView>
@@ -876,17 +941,17 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
       </Modal>
 
       {/* -------------------------------------------------------- */}
-      {/* MODAL: PRIVACY POLICY (Cleaned without developer notes) */}
+      {/* MODAL: PRIVACY POLICY */}
       {/* -------------------------------------------------------- */}
       <Modal visible={privacyModalVisible} animationType="slide" transparent={true} onRequestClose={() => setPrivacyModalVisible(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
-            <ScrollView contentContainerStyle={styles.modalContent}>
+            <ScrollView contentContainerStyle={styles.modalContent} showsVerticalScrollIndicator={false}>
               <Text style={styles.modalTitle}>Privacy Policy</Text>
 
               <Text style={styles.policyHeading}>1. What data is collected?</Text>
               <Text style={styles.policyBody}>
-                We only collect customer phone numbers and their stamp counts / reward history. We do not collect names, locations, payment data, or advertising identifiers.
+                We only collect customer phone numbers and their stamp counts / reward history. We do not collect payment data or advertising identifiers.
               </Text>
 
               <Text style={styles.policyHeading}>2. Why is this data collected?</Text>
@@ -904,7 +969,11 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 Customers may ask the cashier or contact the shop to delete their phone number. The shop owner can delete any customer record instantly from their Customers screen, permanently purging all stamp and reward history.
               </Text>
 
-              <TouchableOpacity style={styles.closeModalButton} onPress={() => setPrivacyModalVisible(false)}>
+              <TouchableOpacity
+                style={styles.closeModalButton}
+                onPress={() => setPrivacyModalVisible(false)}
+                activeOpacity={0.7}
+              >
                 <Text style={styles.closeModalButtonText}>Close</Text>
               </TouchableOpacity>
             </ScrollView>
@@ -926,7 +995,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#F8FAFC',
   },
   topHeader: {
     flexDirection: 'row',
@@ -934,261 +1003,174 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingTop: 16,
-    paddingBottom: 8,
+    paddingBottom: 10,
+  },
+  topHeaderLeft: {
+    flex: 1,
   },
   screenTitle: {
     fontSize: 26,
     fontWeight: '800',
-    color: '#1E3A8A',
+    color: '#0F172A',
+    letterSpacing: -0.5,
   },
-  shopBadge: {
-    backgroundColor: '#EFF6FF',
-    color: '#2563EB',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-    fontWeight: '700',
+  screenSubtitle: {
     fontSize: 13,
+    color: '#64748B',
+    marginTop: 2,
+    fontWeight: '500',
   },
+  activeShopPill: {
+    backgroundColor: '#EFF6FF',
+    borderColor: '#BFDBFE',
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+    maxWidth: 140,
+  },
+  activeShopPillText: {
+    color: '#2563EB',
+    fontWeight: '800',
+    fontSize: 12,
+  },
+
+  /* Segmented Pipeline Tabs */
   pipelineBar: {
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-    paddingVertical: 10,
+    borderBottomColor: '#E2E8F0',
+    paddingVertical: 8,
   },
   pipelineScroll: {
     paddingHorizontal: 16,
     gap: 8,
   },
   pipelineTab: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingHorizontal: 13,
+    paddingVertical: 7,
     borderRadius: 20,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#F1F5F9',
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: '#E2E8F0',
   },
   pipelineTabActive: {
-    backgroundColor: '#2563EB',
-    borderColor: '#2563EB',
+    backgroundColor: '#0F172A',
+    borderColor: '#0F172A',
   },
   pipelineTabText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
-    color: '#4B5563',
+    color: '#64748B',
   },
   pipelineTabTextActive: {
     color: '#FFFFFF',
   },
+
   content: {
     padding: 16,
     paddingBottom: 40,
   },
+
+  /* Card Surfaces */
   card: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
+    borderRadius: 20,
+    padding: 18,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.04,
     shadowRadius: 6,
     elevation: 2,
   },
   cardHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
+    alignItems: 'flex-start',
+    marginBottom: 8,
   },
   cardTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '800',
-    color: '#111827',
-    marginBottom: 4,
+    color: '#0F172A',
+    marginBottom: 2,
+    letterSpacing: -0.3,
   },
   cardSubtitle: {
     fontSize: 13,
-    color: '#6B7280',
-    marginBottom: 16,
+    color: '#64748B',
+    marginBottom: 14,
     lineHeight: 18,
   },
-  countrySelectBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 14,
-    backgroundColor: '#F9FAFB',
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: '#E5E7EB',
-  },
-  countrySelectFlag: {
-    fontSize: 30,
-    marginRight: 12,
-  },
-  countrySelectInfo: {
-    flex: 1,
-  },
-  countrySelectName: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1F2937',
-  },
-  countrySelectFormat: {
-    fontSize: 12,
-    color: '#6B7280',
-    marginTop: 2,
-  },
-  changeCountryBtnText: {
-    color: '#2563EB',
-    fontWeight: '700',
-    fontSize: 14,
-  },
-  securePinBox: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#F9FAFB',
-    borderRadius: 12,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    marginBottom: 16,
-  },
-  securePinLabel: {
-    fontSize: 12,
-    color: '#6B7280',
-    fontWeight: '600',
-  },
-  securePinMasked: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#1E3A8A',
-    marginTop: 2,
-  },
-  changePinButton: {
-    backgroundColor: '#EFF6FF',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#BFDBFE',
-  },
-  changePinButtonText: {
-    color: '#1D4ED8',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  modalPinInput: {
-    backgroundColor: '#F9FAFB',
-    borderColor: '#2563EB',
-    borderWidth: 1.5,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 20,
-    fontWeight: '800',
-    letterSpacing: 6,
-    textAlign: 'center',
-    color: '#111827',
-    marginBottom: 16,
-  },
-  shopItemRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#F9FAFB',
-    marginBottom: 8,
-  },
-  shopItemRowActive: {
-    borderColor: '#10B981',
-    backgroundColor: '#ECFDF5',
-  },
-  shopItemInfo: {
-    flex: 1,
-  },
-  shopItemName: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#374151',
-  },
-  shopItemNameActive: {
-    color: '#065F46',
-  },
-  shopItemSlug: {
-    fontSize: 12,
-    color: '#9CA3AF',
-    marginTop: 2,
-  },
-  activeBadge: {
-    backgroundColor: '#10B981',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  activeBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  switchText: {
-    color: '#2563EB',
-    fontSize: 13,
-    fontWeight: '700',
-  },
+
+  /* Shop Overview */
   shopOverviewHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    gap: 12,
     marginBottom: 12,
   },
-  shopOverviewTitle: {
-    fontSize: 18,
+  shopAvatarSquircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#DBEAFE',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  shopAvatarText: {
+    fontSize: 16,
     fontWeight: '800',
-    color: '#111827',
+    color: '#2563EB',
+  },
+  shopOverviewTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#0F172A',
   },
   editShopBtn: {
-    backgroundColor: '#EFF6FF',
+    backgroundColor: '#F1F5F9',
     paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 8,
+    paddingVertical: 6,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#BFDBFE',
+    borderColor: '#E2E8F0',
   },
   editShopBtnText: {
-    color: '#1D4ED8',
-    fontSize: 13,
+    color: '#0F172A',
+    fontSize: 12,
     fontWeight: '700',
   },
   shopOverviewDetails: {
-    backgroundColor: '#F9FAFB',
-    borderRadius: 12,
-    padding: 14,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 14,
+    padding: 12,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    gap: 10,
+    borderColor: '#E2E8F0',
   },
   overviewRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    paddingVertical: 2,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
   },
   overviewLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#6B7280',
-    width: 130,
+    color: '#64748B',
+    width: 120,
   },
   overviewValue: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#1F2937',
+    color: '#0F172A',
     flex: 1,
     textAlign: 'right',
   },
@@ -1198,53 +1180,208 @@ const styles = StyleSheet.create({
     color: '#2563EB',
     textAlign: 'right',
   },
+
+  /* Branch List */
+  shopItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#FFFFFF',
+    marginBottom: 8,
+    gap: 10,
+  },
+  shopItemRowActive: {
+    borderColor: '#A7F3D0',
+    backgroundColor: '#FAFCFB',
+  },
+  branchAvatarSquircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  branchAvatarSquircleActive: {
+    backgroundColor: '#ECFDF5',
+  },
+  branchAvatarText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#475569',
+  },
+  branchAvatarTextActive: {
+    color: '#059669',
+  },
+  shopItemInfo: {
+    flex: 1,
+  },
+  shopItemName: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  shopItemNameActive: {
+    color: '#065F46',
+  },
+  shopItemSlug: {
+    fontSize: 12,
+    color: '#94A3B8',
+    marginTop: 1,
+  },
   shopItemAddress: {
     fontSize: 12,
-    color: '#4B5563',
-    marginTop: 3,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  activeBadge: {
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+  },
+  activeBadgeText: {
+    color: '#059669',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  switchPill: {
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+  switchText: {
+    color: '#2563EB',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  smallAddBtn: {
+    backgroundColor: '#0F172A',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 10,
+  },
+  smallAddBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 12,
+  },
+
+  /* Country Section */
+  countrySelectBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 14,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  countrySelectFlag: {
+    fontSize: 28,
+    marginRight: 12,
+  },
+  countrySelectInfo: {
+    flex: 1,
+  },
+  countrySelectName: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  countrySelectFormat: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  changeCountryPill: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  changeCountryBtnText: {
+    color: '#2563EB',
+    fontWeight: '700',
+    fontSize: 13,
+  },
+
+  /* Security / Cashier Lock */
+  securePinBox: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginBottom: 16,
+  },
+  securePinLabel: {
+    fontSize: 12,
+    color: '#64748B',
+    fontWeight: '600',
+  },
+  securePinMasked: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginTop: 2,
+  },
+  changePinButton: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+  },
+  changePinButtonText: {
+    color: '#0F172A',
+    fontSize: 13,
+    fontWeight: '700',
   },
   cashierModeButton: {
-    backgroundColor: '#1E3A8A',
-    borderRadius: 12,
+    backgroundColor: '#0F172A',
+    borderRadius: 14,
     paddingVertical: 14,
     alignItems: 'center',
   },
   cashierModeButtonText: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
   },
-  linkBox: {
-    backgroundColor: '#F3F4F6',
-    borderRadius: 10,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    marginBottom: 12,
-  },
-  linkText: {
-    fontSize: 14,
-    color: '#2563EB',
-    fontWeight: '600',
-  },
+
+  /* Buttons & Inputs */
   secondaryButton: {
-    backgroundColor: '#EFF6FF',
-    borderColor: '#BFDBFE',
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E2E8F0',
     borderWidth: 1,
-    borderRadius: 10,
+    borderRadius: 12,
     paddingVertical: 12,
     alignItems: 'center',
   },
   secondaryButtonText: {
-    color: '#1D4ED8',
+    color: '#0F172A',
     fontSize: 14,
     fontWeight: '700',
   },
   printFlyerButton: {
     backgroundColor: '#FEF3C7',
-    borderColor: '#F59E0B',
+    borderColor: '#FDE68A',
     borderWidth: 1,
-    borderRadius: 10,
+    borderRadius: 12,
     paddingVertical: 12,
     alignItems: 'center',
     marginTop: 10,
@@ -1255,50 +1392,49 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   inputLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#374151',
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#334155',
     marginBottom: 6,
-    marginTop: 6,
+    marginTop: 8,
   },
   input: {
-    backgroundColor: '#F9FAFB',
-    borderColor: '#D1D5DB',
+    backgroundColor: '#FFFFFF',
+    borderColor: '#CBD5E1',
     borderWidth: 1.5,
-    borderRadius: 10,
+    borderRadius: 12,
     paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 15,
-    color: '#111827',
-    marginBottom: 16,
+    paddingVertical: 11,
+    fontSize: 14,
+    color: '#0F172A',
+    marginBottom: 12,
   },
   stepperContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#F8FAFC',
     borderWidth: 1.5,
-    borderColor: '#D1D5DB',
-    borderRadius: 10,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
     padding: 6,
-    marginBottom: 16,
+    marginBottom: 14,
   },
   stepperButton: {
-    width: 44,
-    height: 44,
-    backgroundColor: '#2563EB',
-    borderRadius: 8,
+    width: 42,
+    height: 42,
+    backgroundColor: '#0F172A',
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
   stepperButtonDisabled: {
-    backgroundColor: '#D1D5DB',
+    backgroundColor: '#E2E8F0',
   },
   stepperButtonText: {
-    fontSize: 24,
+    fontSize: 22,
     color: '#FFFFFF',
     fontWeight: '700',
-    lineHeight: 28,
   },
   stepperValueContainer: {
     alignItems: 'center',
@@ -1306,15 +1442,15 @@ const styles = StyleSheet.create({
   stepperValue: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#1E3A8A',
+    color: '#0F172A',
   },
   stepperValueLabel: {
     fontSize: 12,
-    color: '#6B7280',
+    color: '#64748B',
   },
   primaryButton: {
     backgroundColor: '#2563EB',
-    borderRadius: 10,
+    borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
     marginTop: 8,
@@ -1327,111 +1463,100 @@ const styles = StyleSheet.create({
   buttonDisabled: {
     opacity: 0.6,
   },
-  smallAddBtn: {
-    backgroundColor: '#EFF6FF',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#BFDBFE',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  smallAddBtnText: {
-    color: '#1D4ED8',
-    fontWeight: '700',
-    fontSize: 13,
-  },
   outlineButton: {
     borderWidth: 1.5,
-    borderColor: '#2563EB',
-    borderRadius: 10,
+    borderColor: '#CBD5E1',
+    borderRadius: 12,
     paddingVertical: 12,
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 14,
   },
   outlineButtonText: {
-    color: '#2563EB',
+    color: '#334155',
     fontSize: 14,
     fontWeight: '700',
   },
   divider: {
     height: 1,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: '#F1F5F9',
     marginVertical: 14,
   },
   accountLabel: {
-    fontSize: 13,
-    color: '#6B7280',
+    fontSize: 12,
+    color: '#64748B',
     marginBottom: 4,
+    fontWeight: '600',
   },
   accountEmail: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#111827',
+    color: '#0F172A',
     marginBottom: 16,
   },
   logoutButton: {
-    backgroundColor: '#FEE2E2',
-    borderColor: '#EF4444',
+    backgroundColor: '#FFF1F2',
+    borderColor: '#FDA4AF',
     borderWidth: 1,
-    borderRadius: 10,
+    borderRadius: 12,
     paddingVertical: 12,
     alignItems: 'center',
   },
   logoutButtonText: {
-    color: '#DC2626',
-    fontSize: 15,
+    color: '#E11D48',
+    fontSize: 14,
     fontWeight: '700',
   },
+
+  /* Notifications */
   errorBox: {
-    backgroundColor: '#FEE2E2',
+    backgroundColor: '#FEF2F2',
     borderWidth: 1,
-    borderColor: '#EF4444',
-    borderRadius: 10,
+    borderColor: '#FCA5A5',
+    borderRadius: 12,
     padding: 12,
-    marginBottom: 16,
+    marginBottom: 14,
   },
   errorText: {
     color: '#991B1B',
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
     textAlign: 'center',
   },
   successBox: {
     backgroundColor: '#ECFDF5',
     borderWidth: 1,
-    borderColor: '#10B981',
-    borderRadius: 10,
+    borderColor: '#A7F3D0',
+    borderRadius: 12,
     padding: 12,
-    marginBottom: 16,
+    marginBottom: 14,
   },
   successText: {
     color: '#065F46',
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
     textAlign: 'center',
   },
+
+  /* Modals */
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: 18,
   },
   modalContainer: {
     width: '100%',
-    maxWidth: 420,
-    maxHeight: '85%',
+    maxWidth: 440,
+    maxHeight: '88%',
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 24,
+    borderRadius: 24,
+    padding: 22,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
+    elevation: 10,
   },
   modalContent: {
     paddingBottom: 10,
@@ -1439,36 +1564,51 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#1E3A8A',
-    marginBottom: 6,
+    color: '#0F172A',
+    marginBottom: 4,
   },
   modalSubtitle: {
     fontSize: 13,
-    color: '#6B7280',
-    marginBottom: 16,
+    color: '#64748B',
+    marginBottom: 14,
+    lineHeight: 18,
+  },
+  modalPinInput: {
+    backgroundColor: '#F8FAFC',
+    borderColor: '#2563EB',
+    borderWidth: 1.5,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 22,
+    fontWeight: '800',
+    letterSpacing: 6,
+    textAlign: 'center',
+    color: '#0F172A',
+    marginBottom: 14,
   },
   closeModalButton: {
-    marginTop: 14,
+    marginTop: 10,
     paddingVertical: 12,
     alignItems: 'center',
-    backgroundColor: '#F3F4F6',
-    borderRadius: 10,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 12,
   },
   closeModalButtonText: {
-    color: '#4B5563',
+    color: '#475569',
     fontSize: 14,
     fontWeight: '700',
   },
   policyHeading: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
-    color: '#1F2937',
+    color: '#0F172A',
     marginTop: 12,
     marginBottom: 4,
   },
   policyBody: {
     fontSize: 13,
-    color: '#4B5563',
+    color: '#475569',
     lineHeight: 19,
   },
 });
