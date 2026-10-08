@@ -17,7 +17,9 @@ import {
   Alert,
   Linking,
   Platform,
+  Share,
 } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 import { supabase } from '../lib/supabase';
 import { strings } from '../constants/strings';
 import { APP_CONFIG } from '../constants/config';
@@ -127,9 +129,10 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   }, [shop]);
 
   // Customer page web link
+  const slug = shop.slug || generateShopSlug(shop.name);
   const customerWebBase =
     process.env.EXPO_PUBLIC_CUSTOMER_WEB_URL || 'https://stampup-cards.vercel.app';
-  const customerLink = `${customerWebBase.replace(/\/+$/, '')}/c/${shop.slug}`;
+  const customerLink = `${customerWebBase.replace(/\/+$/, '')}/c/${slug}`;
 
   // Handle Save Shop Details
   const handleSaveShopDetails = async () => {
@@ -314,12 +317,29 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   };
 
   // Copy Customer Web Link
-  const handleCopyLink = () => {
-    if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.clipboard) {
-      navigator.clipboard.writeText(customerLink);
+  const handleCopyLink = async () => {
+    try {
+      await Clipboard.setStringAsync(customerLink);
+      setCopiedNotification(true);
+      setTimeout(() => setCopiedNotification(false), 2500);
+      if (Platform.OS !== 'web') {
+        Alert.alert('Link Copied! 📋', customerLink);
+      }
+    } catch (e) {
+      if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.clipboard) {
+        navigator.clipboard.writeText(customerLink);
+        setCopiedNotification(true);
+        setTimeout(() => setCopiedNotification(false), 2500);
+      } else {
+        try {
+          await Share.share({
+            title: `${shop.name} Loyalty Card`,
+            message: `Collect stamps and earn rewards at ${shop.name}! Open: ${customerLink}`,
+            url: customerLink,
+          });
+        } catch (shareErr) {}
+      }
     }
-    setCopiedNotification(true);
-    setTimeout(() => setCopiedNotification(false), 2500);
   };
 
   return (
@@ -728,16 +748,51 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
             <ShopQRCode shopName={shop.name} customerLink={customerLink} />
 
-            <TouchableOpacity style={styles.secondaryButton} onPress={handleCopyLink} activeOpacity={0.7}>
-              <Text style={styles.secondaryButtonText}>
-                {copiedNotification ? '✓ Link Copied to Clipboard!' : '📋 Copy Customer Link'}
-              </Text>
-            </TouchableOpacity>
+            {/* Display exact URL for user verification */}
+            <View style={styles.urlDisplayCard}>
+              <Text style={styles.urlDisplayLabel}>Customer Card Link:</Text>
+              <TouchableOpacity
+                onPress={() => Linking.openURL(customerLink)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.urlDisplayText} numberOfLines={2}>
+                  {customerLink}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
+              <TouchableOpacity
+                style={[styles.secondaryButton, { flex: 1 }]}
+                onPress={handleCopyLink}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.secondaryButtonText}>
+                  {copiedNotification ? '✓ Link Copied!' : '📋 Copy Link'}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.secondaryButton, { flex: 1, backgroundColor: '#F8FAFC' }]}
+                onPress={() => {
+                  Share.share({
+                    title: `${shop.name} Loyalty Card`,
+                    message: `Collect stamps and earn rewards at ${shop.name}! Open: ${customerLink}`,
+                    url: customerLink,
+                  });
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.secondaryButtonText}>
+                  📤 Share Link
+                </Text>
+              </TouchableOpacity>
+            </View>
 
             <TouchableOpacity
               style={styles.printFlyerButton}
               onPress={() => {
-                const flyerUrl = `${customerWebBase.replace(/\/+$/, '')}/flyer.html?shop=${shop.slug}&name=${encodeURIComponent(shop.name)}&reward=${encodeURIComponent(shop.reward_text)}&stamps=${shop.stamps_required}`;
+                const flyerUrl = `${customerWebBase.replace(/\/+$/, '')}/flyer.html?shop=${slug}&name=${encodeURIComponent(shop.name)}&reward=${encodeURIComponent(shop.reward_text)}&stamps=${shop.stamps_required}`;
                 Linking.openURL(flyerUrl);
               }}
               activeOpacity={0.7}
@@ -1364,6 +1419,29 @@ const styles = StyleSheet.create({
   },
 
   /* Buttons & Inputs */
+  urlDisplayCard: {
+    backgroundColor: '#F8FAFC',
+    borderColor: '#E2E8F0',
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 14,
+    marginBottom: 4,
+  },
+  urlDisplayLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748B',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  urlDisplayText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#2563EB',
+    lineHeight: 18,
+  },
   secondaryButton: {
     backgroundColor: '#FFFFFF',
     borderColor: '#E2E8F0',
