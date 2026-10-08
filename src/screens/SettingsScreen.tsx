@@ -742,6 +742,22 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             </TouchableOpacity>
 
             <TouchableOpacity
+              style={styles.whatsAppShareButton}
+              onPress={() => {
+                const text = `Join *${shop.name}* Loyalty Rewards! 🎁\nCollect stamps and unlock: *${shop.reward_text}*.\n\nOpen your digital loyalty card here:\n${customerLink}`;
+                const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+                Linking.openURL(url).catch(() => {
+                  Alert.alert('WhatsApp Error', 'Could not open WhatsApp on this device.');
+                });
+              }}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.whatsAppShareButtonText}>
+                💬 Share Card on WhatsApp
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
               style={styles.printFlyerButton}
               onPress={() => {
                 const flyerUrl = `${customerWebBase.replace(/\/+$/, '')}/flyer.html?shop=${slug}&name=${encodeURIComponent(shop.name)}&reward=${encodeURIComponent(shop.reward_text)}&stamps=${shop.stamps_required}`;
@@ -1382,6 +1398,20 @@ const styles = StyleSheet.create({
   },
   secondaryButtonText: {
     color: '#1D4ED8',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  whatsAppShareButton: {
+    backgroundColor: '#ECFDF5',
+    borderColor: '#A7F3D0',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  whatsAppShareButtonText: {
+    color: '#047857',
     fontSize: 14,
     fontWeight: '700',
   },

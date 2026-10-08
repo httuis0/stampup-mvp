@@ -17,6 +17,7 @@ import {
   Platform,
   Alert,
   Modal,
+  Linking,
 } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { strings } from '../constants/strings';
@@ -45,6 +46,18 @@ interface LastActionInfo {
   stampsRequired: number;
   timestamp: number;
 }
+
+const customerWebBase =
+  process.env.EXPO_PUBLIC_CUSTOMER_WEB_URL || 'https://stampup-cards.vercel.app';
+
+const sendWhatsApp = (phone: string, text: string) => {
+  const cleanDigits = phone.replace(/[^0-9]/g, '');
+  const encoded = encodeURIComponent(text);
+  const url = `https://wa.me/${cleanDigits}?text=${encoded}`;
+  Linking.openURL(url).catch(() => {
+    Alert.alert('WhatsApp Error', 'Could not open WhatsApp on this device.');
+  });
+};
 
 export const AddStampScreen: React.FC<AddStampScreenProps> = ({ shop }) => {
   const [phone, setPhone] = useState<string>('');
@@ -655,6 +668,20 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({ shop }) => {
               {formatPhoneForDisplay(successInfo.phone)} now has {successInfo.currentStamps} of {successInfo.stampsRequired} stamps
             </Text>
             {renderCircles(successInfo.currentStamps, successInfo.stampsRequired)}
+
+            {/* 1-Click WhatsApp Receipt Button */}
+            <TouchableOpacity
+              style={styles.whatsAppSuccessBtn}
+              onPress={() => {
+                const targetSlug = shop.slug || shop.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+                const cardUrl = `${customerWebBase.replace(/\/+$/, '')}/c/${targetSlug}?phone=${encodeURIComponent(successInfo.phone.replace(/[^0-9]/g, ''))}`;
+                const text = `Hi! You just received a stamp at *${shop.name}* 🎉\n\nYou now have *${successInfo.currentStamps} of ${successInfo.stampsRequired}* stamps!\nCollect ${Math.max(0, successInfo.stampsRequired - successInfo.currentStamps)} more to unlock: *${shop.reward_text}*.\n\nView your digital card anytime here:\n${cardUrl}`;
+                sendWhatsApp(successInfo.phone, text);
+              }}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.whatsAppSuccessBtnText}>💬 Send WhatsApp Receipt</Text>
+            </TouchableOpacity>
           </View>
         )}
 
@@ -682,6 +709,20 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({ shop }) => {
               ) : (
                 <Text style={styles.rewardButtonText}>🎁 {strings.addStamp.giveRewardButton}</Text>
               )}
+            </TouchableOpacity>
+
+            {/* 1-Click WhatsApp Reward Notification */}
+            <TouchableOpacity
+              style={styles.whatsAppRewardBtn}
+              onPress={() => {
+                const targetSlug = shop.slug || shop.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+                const cardUrl = `${customerWebBase.replace(/\/+$/, '')}/c/${targetSlug}?phone=${encodeURIComponent(cardFullInfo.phone.replace(/[^0-9]/g, ''))}`;
+                const text = `Congratulations! 🏆\nYour loyalty card at *${shop.name}* is FULL!\n\nYou've earned your reward: *${shop.reward_text}* 🎁\nVisit us anytime to claim it!\n\nView card: ${cardUrl}`;
+                sendWhatsApp(cardFullInfo.phone, text);
+              }}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.whatsAppRewardBtnText}>💬 Send Reward Alert on WhatsApp</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -1743,6 +1784,44 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '900',
+  },
+  whatsAppSuccessBtn: {
+    backgroundColor: '#10B981',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    marginTop: 10,
+    width: '100%',
+    alignItems: 'center',
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  whatsAppSuccessBtnText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  whatsAppRewardBtn: {
+    backgroundColor: '#25D366',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    marginTop: 10,
+    width: '100%',
+    alignItems: 'center',
+    shadowColor: '#25D366',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  whatsAppRewardBtnText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '800',
   },
   tooSoonBanner: {
     backgroundColor: '#FFFBEB',

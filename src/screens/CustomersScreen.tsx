@@ -20,6 +20,7 @@ import {
   Platform,
   Share,
   ScrollView,
+  Linking,
 } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { strings } from '../constants/strings';
@@ -59,6 +60,18 @@ const getInitials = (name?: string | null, phone?: string): string => {
     return digits.slice(-2);
   }
   return 'CU';
+};
+
+const customerWebBase =
+  process.env.EXPO_PUBLIC_CUSTOMER_WEB_URL || 'https://stampup-cards.vercel.app';
+
+const sendWhatsApp = (phone: string, text: string) => {
+  const cleanDigits = phone.replace(/[^0-9]/g, '');
+  const encoded = encodeURIComponent(text);
+  const url = `https://wa.me/${cleanDigits}?text=${encoded}`;
+  Linking.openURL(url).catch(() => {
+    Alert.alert('WhatsApp Error', 'Could not open WhatsApp on this device.');
+  });
 };
 
 export const CustomersScreen: React.FC<CustomersScreenProps> = ({ shop }) => {
@@ -396,6 +409,19 @@ export const CustomersScreen: React.FC<CustomersScreenProps> = ({ shop }) => {
                 </Text>
               </View>
             )}
+            <TouchableOpacity
+              style={styles.rowWhatsAppBtn}
+              onPress={(e) => {
+                e.stopPropagation();
+                const namePart = item.name ? `Hi ${item.name}! ` : 'Hi! ';
+                const remaining = Math.max(0, shop.stamps_required - (item.current_stamps || 0));
+                const msg = `${namePart}⚡ You have ${item.current_stamps} of ${shop.stamps_required} stamps at ${shop.name}! ${remaining === 0 ? 'Your card is full and ready for a reward!' : `Only ${remaining} more stamps to earn a free ${shop.reward_text}!`} Check your card: ${customerWebBase}/c/${shop.slug}?phone=${encodeURIComponent(item.phone)}`;
+                sendWhatsApp(item.phone, msg);
+              }}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.rowWhatsAppBtnText}>💬 WhatsApp</Text>
+            </TouchableOpacity>
             <Text style={styles.chevronIcon}>›</Text>
           </View>
         </View>
@@ -825,6 +851,78 @@ export const CustomersScreen: React.FC<CustomersScreenProps> = ({ shop }) => {
                       </View>
                     ))
                   )}
+                </View>
+
+                {/* ---------------------------------------------------- */}
+                {/* WHATSAPP CUSTOMER MARKETING & ENGAGEMENT */}
+                {/* ---------------------------------------------------- */}
+                <View style={styles.whatsAppSection}>
+                  <View style={styles.whatsAppHeaderRow}>
+                    <Text style={styles.whatsAppSectionTitle}>💬 WhatsApp Direct Marketing</Text>
+                    <View style={styles.whatsAppBadge}>
+                      <Text style={styles.whatsAppBadgeText}>1-Click Direct</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.whatsAppSubtext}>
+                    Send pre-crafted marketing promotions directly to this customer's WhatsApp:
+                  </Text>
+
+                  {/* Quick Action 1: Reward Ready Alert (if stamps >= required) */}
+                  {selectedCustomer.current_stamps >= shop.stamps_required && (
+                    <TouchableOpacity
+                      style={styles.whatsAppActionButtonReward}
+                      onPress={() => {
+                        const namePart = selectedCustomer.name ? `Hey ${selectedCustomer.name}! ` : 'Hey! ';
+                        const msg = `${namePart}🎉 Your loyalty card at ${shop.name} is FULL! Come visit us anytime to claim your FREE ${shop.reward_text}! Open your card here: ${customerWebBase}/c/${shop.slug}?phone=${encodeURIComponent(selectedCustomer.phone)}`;
+                        sendWhatsApp(selectedCustomer.phone, msg);
+                      }}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.whatsAppActionIcon}>🎁</Text>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.whatsAppActionTitleReward}>Send Reward Ready Alert</Text>
+                        <Text style={styles.whatsAppActionDesc}>Notify customer to claim their free {shop.reward_text}</Text>
+                      </View>
+                      <Text style={styles.whatsAppChevron}>↗</Text>
+                    </TouchableOpacity>
+                  )}
+
+                  {/* Quick Action 2: Stamp Status & Live Card Link */}
+                  <TouchableOpacity
+                    style={styles.whatsAppActionButton}
+                    onPress={() => {
+                      const namePart = selectedCustomer.name ? `Hi ${selectedCustomer.name}! ` : 'Hi! ';
+                      const remaining = Math.max(0, shop.stamps_required - selectedCustomer.current_stamps);
+                      const msg = `${namePart}⚡ You currently have ${selectedCustomer.current_stamps} of ${shop.stamps_required} stamps at ${shop.name}! ${remaining > 0 ? `Only ${remaining} more stamps to earn a free ${shop.reward_text}!` : 'Your card is ready for a reward!'} View your live card here: ${customerWebBase}/c/${shop.slug}?phone=${encodeURIComponent(selectedCustomer.phone)}`;
+                      sendWhatsApp(selectedCustomer.phone, msg);
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.whatsAppActionIcon}>⚡</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.whatsAppActionTitle}>Send Stamp Status Update</Text>
+                      <Text style={styles.whatsAppActionDesc}>Share live loyalty card link & remaining stamps</Text>
+                    </View>
+                    <Text style={styles.whatsAppChevron}>↗</Text>
+                  </TouchableOpacity>
+
+                  {/* Quick Action 3: "We Miss You" VIP Re-engagement */}
+                  <TouchableOpacity
+                    style={styles.whatsAppActionButton}
+                    onPress={() => {
+                      const namePart = selectedCustomer.name ? `Hi ${selectedCustomer.name}! ` : 'Hi! ';
+                      const msg = `${namePart}👋 We miss seeing you at ${shop.name}! Come by this week for your favorite treat and get your next loyalty stamp toward your free ${shop.reward_text}! Check your card: ${customerWebBase}/c/${shop.slug}?phone=${encodeURIComponent(selectedCustomer.phone)}`;
+                      sendWhatsApp(selectedCustomer.phone, msg);
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.whatsAppActionIcon}>👋</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.whatsAppActionTitle}>Send "We Miss You" Promo</Text>
+                      <Text style={styles.whatsAppActionDesc}>Re-engage customer with a warm VIP reminder</Text>
+                    </View>
+                    <Text style={styles.whatsAppChevron}>↗</Text>
+                  </TouchableOpacity>
                 </View>
 
                 {/* Privacy / GDPR Section */}
@@ -2067,5 +2165,103 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '700',
     fontSize: 14,
+  },
+
+  /* WhatsApp Marketing Styles */
+  rowWhatsAppBtn: {
+    backgroundColor: '#DCFCE7',
+    borderColor: '#86EFAC',
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    marginRight: 4,
+  },
+  rowWhatsAppBtnText: {
+    color: '#15803D',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  whatsAppSection: {
+    backgroundColor: '#F0FDF4',
+    borderColor: '#BBF7D0',
+    borderWidth: 1,
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 16,
+  },
+  whatsAppHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  whatsAppSectionTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#166534',
+  },
+  whatsAppBadge: {
+    backgroundColor: '#DCFCE7',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  whatsAppBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#15803D',
+    textTransform: 'uppercase',
+  },
+  whatsAppSubtext: {
+    fontSize: 12,
+    color: '#166534',
+    marginBottom: 12,
+    lineHeight: 16,
+  },
+  whatsAppActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderColor: '#86EFAC',
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 10,
+    marginBottom: 8,
+    gap: 10,
+  },
+  whatsAppActionButtonReward: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF3C7',
+    borderColor: '#FDE68A',
+    borderWidth: 1.5,
+    borderRadius: 12,
+    padding: 10,
+    marginBottom: 8,
+    gap: 10,
+  },
+  whatsAppActionIcon: {
+    fontSize: 18,
+  },
+  whatsAppActionTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  whatsAppActionTitleReward: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#92400E',
+  },
+  whatsAppActionDesc: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 1,
+  },
+  whatsAppChevron: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#15803D',
   },
 });

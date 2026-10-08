@@ -358,6 +358,30 @@
       transform: scale(0.99);
     }
 
+    .btn-whatsapp {
+      background: #ECFDF5;
+      color: #047857;
+      border: 1.5px solid #A7F3D0;
+      font-size: 14px;
+      font-weight: 700;
+      padding: 13px;
+      border-radius: 14px;
+      cursor: pointer;
+      width: 100%;
+      margin-top: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.15s;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .btn-whatsapp:active {
+      background: #D1FAE5;
+      transform: scale(0.99);
+    }
+
     .request-status-box {
       display: none;
       margin-top: 10px;
@@ -812,6 +836,11 @@
         </button>
         <div class="request-status-box" id="requestStatusBox"></div>
       </div>
+
+      <!-- Share with Friends on WhatsApp (Viral Referral) -->
+      <button class="btn-whatsapp" id="shareWhatsAppBtn" onclick="handleWhatsAppShare()">
+        💬 Share Card with Friends on WhatsApp
+      </button>
 
       <!-- Navigation & Action Buttons -->
       <button class="btn-secondary" onclick="resetForm()">
@@ -1589,6 +1618,15 @@
           'Opening this shortcut will instantly show your live stamp card!'
         );
       }
+    }
+
+    function handleWhatsAppShare() {
+      const sName = (shopData && shopData.name) || document.title.replace(' - Loyalty Card', '') || 'this shop';
+      const rText = (shopData && shopData.reward_text) || 'free rewards';
+      const shareUrl = window.location.href;
+      const text = `Hey! I'm collecting loyalty stamps at *${sName}* to earn *${rText}* 🎁\n\nYou can collect stamps too with your phone (no app download needed):\n${shareUrl}`;
+      const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+      window.open(waUrl, '_blank');
     }
 
     phoneInput.addEventListener('keypress', (e) => {
