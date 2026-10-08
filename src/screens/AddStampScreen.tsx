@@ -211,6 +211,20 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({ shop }) => {
     return `${Math.floor(diff / 3600)}h ago`;
   };
 
+  // Helper for customer avatar initials
+  const getInitials = (name?: string | null, phoneStr?: string | null): string => {
+    if (name && name.trim()) {
+      const parts = name.trim().split(/\s+/);
+      if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+      return parts[0].slice(0, 2).toUpperCase();
+    }
+    if (phoneStr) {
+      const digits = phoneStr.replace(/[^0-9]/g, '');
+      return digits.slice(-2);
+    }
+    return '★';
+  };
+
   // Step 1: Trigger Confirmation Popup
   const handleAddStamp = (targetPhone?: string) => {
     clearStatuses();
@@ -454,20 +468,20 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({ shop }) => {
     }
   };
 
-  // Render visual circles
+  // Render visual circles with squircle stamp spots
   const renderCircles = (current: number, total: number) => {
     const circles = [];
     for (let i = 1; i <= total; i++) {
       const isFilled = i <= current;
       circles.push(
-        <View key={i} style={[styles.circle, isFilled && styles.circleFilled]}>
-          <Text style={[styles.circleText, isFilled && styles.circleTextFilled]}>
+        <View key={i} style={[styles.stampSpot, isFilled && styles.stampSpotFilled]}>
+          <Text style={[styles.stampSpotText, isFilled && styles.stampSpotTextFilled]}>
             {isFilled ? '★' : i}
           </Text>
         </View>
       );
     }
-    return <View style={styles.circlesGrid}>{circles}</View>;
+    return <View style={styles.stampSpotsGrid}>{circles}</View>;
   };
 
   return (
@@ -477,20 +491,35 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({ shop }) => {
       keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}
     >
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-        {/* Top Header Row */}
+        {/* Top Header Row with Brand & Shift Stats */}
         <View style={styles.topHeader}>
-          <View style={styles.headerTitles}>
-            <Text style={styles.shopNameText}>{shop.name}</Text>
-            <Text style={styles.rewardSubtext}>Reward: {shop.reward_text}</Text>
+          <View style={styles.headerBrandContainer}>
+            <View style={styles.shopAvatar}>
+              <Text style={styles.shopAvatarText}>
+                {shop.name ? shop.name.slice(0, 1).toUpperCase() : '🏪'}
+              </Text>
+            </View>
+            <View style={styles.headerTitles}>
+              <Text style={styles.shopNameText} numberOfLines={1}>
+                {shop.name}
+              </Text>
+              <View style={styles.rewardPill}>
+                <Text style={styles.rewardPillText} numberOfLines={1}>
+                  🎯 {shop.stamps_required} stamps = {shop.reward_text}
+                </Text>
+              </View>
+            </View>
           </View>
+
           <View style={styles.headerBadges}>
-            {/* Small New Requests Button with Live Badge */}
+            {/* Live Requests Button with Badge */}
             <TouchableOpacity
               style={[
                 styles.newRequestsBtn,
                 pendingRequests.length > 0 && styles.newRequestsBtnActive,
               ]}
               onPress={() => setShowRequestsModal(true)}
+              activeOpacity={0.8}
             >
               <Text style={styles.newRequestsBtnIcon}>🔔</Text>
               <Text
@@ -499,7 +528,7 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({ shop }) => {
                   pendingRequests.length > 0 && styles.newRequestsBtnTextActive,
                 ]}
               >
-                New Requests
+                Requests
               </Text>
               {pendingRequests.length > 0 && (
                 <View style={styles.requestCountBadge}>
@@ -509,39 +538,54 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({ shop }) => {
             </TouchableOpacity>
 
             <View style={styles.shiftBadge}>
-              <Text style={styles.shiftBadgeText}>⚡ {todayStampsCount} today</Text>
+              <View style={styles.shiftBadgeDot} />
+              <Text style={styles.shiftBadgeText}>{todayStampsCount} today</Text>
             </View>
           </View>
         </View>
 
         {/* ---------------------------------------------------- */}
-        {/* INLINE NEW REQUESTS BANNER (If any pending) */}
+        {/* INLINE LIVE COUNTER REQUESTS QUEUE (If any pending) */}
         {/* ---------------------------------------------------- */}
         {pendingRequests.length > 0 && (
           <View style={styles.requestsPanel}>
             <View style={styles.requestsPanelHeader}>
-              <Text style={styles.requestsPanelTitle}>
-                🔔 Incoming Customer Requests ({pendingRequests.length})
-              </Text>
-              <TouchableOpacity onPress={() => setShowRequestsModal(true)}>
-                <Text style={styles.requestsPanelViewAll}>View All ↗</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <View style={styles.livePulseDot} />
+                <Text style={styles.requestsPanelTitle}>
+                  LIVE COUNTER REQUESTS ({pendingRequests.length})
+                </Text>
+              </View>
+              <TouchableOpacity onPress={() => setShowRequestsModal(true)} activeOpacity={0.7}>
+                <Text style={styles.requestsPanelViewAll}>View Queue ↗</Text>
               </TouchableOpacity>
             </View>
 
-            {/* Single Line Requests */}
             {pendingRequests.slice(0, 3).map((req) => (
               <View key={req.id} style={styles.singleLineRequestRow}>
-                <View style={styles.requestLeftCol}>
-                  <Text style={styles.requestPhoneText} numberOfLines={1}>
-                    {formatPhoneForDisplay(req.phone)}
-                  </Text>
-                  <Text style={styles.requestTimeAgoText} numberOfLines={1}>
-                    • {getTimeAgo(req.created_at)}
+                <View style={styles.requestAvatarCircle}>
+                  <Text style={styles.requestAvatarText}>
+                    {getInitials(req.customer_name, req.phone)}
                   </Text>
                 </View>
 
+                <View style={styles.requestLeftCol}>
+                  {req.customer_name ? (
+                    <Text style={styles.requestCustomerName} numberOfLines={1}>
+                      {req.customer_name}
+                    </Text>
+                  ) : null}
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Text style={styles.requestPhoneText} numberOfLines={1}>
+                      {formatPhoneForDisplay(req.phone)}
+                    </Text>
+                    <Text style={styles.requestTimeAgoText} numberOfLines={1}>
+                      • {getTimeAgo(req.created_at)}
+                    </Text>
+                  </View>
+                </View>
+
                 <View style={styles.requestRightCol}>
-                  {/* Green Accept Button */}
                   <TouchableOpacity
                     style={[
                       styles.singleLineAcceptBtn,
@@ -549,6 +593,7 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({ shop }) => {
                     ]}
                     onPress={() => handleResolveRequest(req.id, 'accept')}
                     disabled={resolvingId === req.id}
+                    activeOpacity={0.8}
                   >
                     {resolvingId === req.id ? (
                       <ActivityIndicator size="small" color="#FFFFFF" />
@@ -557,7 +602,6 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({ shop }) => {
                     )}
                   </TouchableOpacity>
 
-                  {/* Red Reject Button */}
                   <TouchableOpacity
                     style={[
                       styles.singleLineRejectBtn,
@@ -565,8 +609,9 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({ shop }) => {
                     ]}
                     onPress={() => handleResolveRequest(req.id, 'reject')}
                     disabled={resolvingId === req.id}
+                    activeOpacity={0.7}
                   >
-                    <Text style={styles.singleLineRejectText}>✕ Reject</Text>
+                    <Text style={styles.singleLineRejectText}>✕</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -579,14 +624,19 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({ shop }) => {
         {/* ---------------------------------------------------- */}
         {lastAction && undoSecondsLeft > 0 && (
           <View style={styles.undoBar}>
-            <Text style={styles.undoText}>
-              Stamp added for {lastAction.phone.slice(-4)} ({undoSecondsLeft}s)
-            </Text>
-            <TouchableOpacity style={styles.undoButton} onPress={handleUndo} disabled={undoLoading}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
+              <View style={styles.undoProgressCircle}>
+                <Text style={styles.undoProgressText}>{undoSecondsLeft}s</Text>
+              </View>
+              <Text style={styles.undoText} numberOfLines={1}>
+                Stamp added for {lastAction.phone.slice(-4)}
+              </Text>
+            </View>
+            <TouchableOpacity style={styles.undoButton} onPress={handleUndo} disabled={undoLoading} activeOpacity={0.8}>
               {undoLoading ? (
                 <ActivityIndicator color="#FFFFFF" size="small" />
               ) : (
-                <Text style={styles.undoButtonText}>↩️ Undo</Text>
+                <Text style={styles.undoButtonText}>↩ Undo</Text>
               )}
             </TouchableOpacity>
           </View>
@@ -597,9 +647,12 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({ shop }) => {
         {/* ---------------------------------------------------- */}
         {successInfo && (
           <View style={styles.successBanner}>
-            <Text style={styles.successBannerTitle}>✓ Stamp Added!</Text>
+            <View style={styles.successBannerIconCircle}>
+              <Text style={styles.successBannerIconText}>✓</Text>
+            </View>
+            <Text style={styles.successBannerTitle}>Stamp Added Successfully!</Text>
             <Text style={styles.successBannerSubtitle}>
-              {formatPhoneForDisplay(successInfo.phone)} has {successInfo.currentStamps} of {successInfo.stampsRequired} stamps
+              {formatPhoneForDisplay(successInfo.phone)} now has {successInfo.currentStamps} of {successInfo.stampsRequired} stamps
             </Text>
             {renderCircles(successInfo.currentStamps, successInfo.stampsRequired)}
           </View>
@@ -610,7 +663,10 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({ shop }) => {
         {/* ---------------------------------------------------- */}
         {cardFullInfo && (
           <View style={styles.cardFullBanner}>
-            <Text style={styles.cardFullTitle}>🎉 {strings.addStamp.cardFullTitle}</Text>
+            <View style={styles.cardFullTrophyCircle}>
+              <Text style={styles.cardFullTrophyText}>🏆</Text>
+            </View>
+            <Text style={styles.cardFullTitle}>Reward Earned!</Text>
             <Text style={styles.cardFullSubtitle}>
               {formatPhoneForDisplay(cardFullInfo.phone)} earned: {shop.reward_text}
             </Text>
@@ -619,6 +675,7 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({ shop }) => {
               style={[styles.rewardButton, rewardLoading && styles.buttonDisabled]}
               onPress={() => handleGiveReward(cardFullInfo.phone)}
               disabled={rewardLoading}
+              activeOpacity={0.85}
             >
               {rewardLoading ? (
                 <ActivityIndicator color="#FFFFFF" size="small" />
@@ -634,7 +691,7 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({ shop }) => {
         {/* ---------------------------------------------------- */}
         {tooSoonInfo && (
           <View style={styles.tooSoonBanner}>
-            <Text style={styles.tooSoonTitle}>⏳ Too Soon to Stamp</Text>
+            <Text style={styles.tooSoonTitle}>⏳ Cooldown Active</Text>
             <Text style={styles.tooSoonSubtitle}>
               {strings.addStamp.tooSoonMessage.replace('{minutes}', tooSoonInfo.minutesLeft.toString())}
             </Text>
@@ -646,21 +703,27 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({ shop }) => {
         {/* ---------------------------------------------------- */}
         {errorMessage && (
           <View style={styles.errorBox}>
-            <Text style={styles.errorText}>{errorMessage}</Text>
+            <Text style={styles.errorText}>⚠️ {errorMessage}</Text>
           </View>
         )}
 
         {/* ---------------------------------------------------- */}
-        {/* PHONE NUMBER INPUT BOX WITH COUNTRY SELECTOR */}
+        {/* PHONE NUMBER INPUT BOX (HERO POS SECTION) */}
         {/* ---------------------------------------------------- */}
         <View style={styles.inputCard}>
-          <Text style={styles.inputLabel}>Enter Active Customer Mobile Number:</Text>
+          <View style={styles.inputHeaderRow}>
+            <Text style={styles.inputSectionLabel}>CUSTOMER PHONE NUMBER</Text>
+            <View style={styles.activeCheckBadge}>
+              <Text style={styles.activeCheckBadgeText}>✓ Active Customers</Text>
+            </View>
+          </View>
 
           <View style={styles.phoneInputRow}>
             {/* Country Selector Button */}
             <TouchableOpacity
               style={styles.countryButton}
               onPress={() => setCountryModalVisible(true)}
+              activeOpacity={0.7}
             >
               <Text style={styles.countryFlag}>{selectedCountry.flag}</Text>
               <Text style={styles.countryDialCode}>{selectedCountry.dialCode}</Text>
@@ -675,26 +738,25 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({ shop }) => {
                 clearStatuses();
                 setPhone(text);
               }}
-              placeholder={`e.g. ${selectedCountry.format}`}
-              placeholderTextColor="#9CA3AF"
+              placeholder={selectedCountry.format}
+              placeholderTextColor="#94A3B8"
               keyboardType="phone-pad"
               autoFocus={false}
               editable={!loading}
             />
 
             {phone.length > 0 && (
-              <TouchableOpacity style={styles.clearBtn} onPress={() => setPhone('')}>
+              <TouchableOpacity style={styles.clearBtn} onPress={() => setPhone('')} activeOpacity={0.6}>
                 <Text style={styles.clearBtnText}>✕</Text>
               </TouchableOpacity>
             )}
           </View>
 
-          {/* Clean format preview hint */}
+          {/* Format preview hint */}
           <View style={styles.phoneHintRow}>
             <Text style={styles.phoneHintText}>
-              Format: <Text style={styles.phoneHintBold}>{selectedCountry.dialCode} {selectedCountry.format}</Text>
+              Expected format: <Text style={styles.phoneHintBold}>{selectedCountry.dialCode} {selectedCountry.format}</Text>
             </Text>
-            <Text style={styles.phoneHintText}>• Active cards only</Text>
           </View>
 
           {/* Big Add Stamp Button */}
@@ -702,11 +764,15 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({ shop }) => {
             style={[styles.bigAddButton, loading && styles.buttonDisabled]}
             onPress={() => handleAddStamp()}
             disabled={loading}
+            activeOpacity={0.85}
           >
             {loading ? (
               <ActivityIndicator color="#FFFFFF" size="small" />
             ) : (
-              <Text style={styles.bigAddButtonText}>⚡ {strings.addStamp.addStampButton}</Text>
+              <View style={styles.bigAddButtonContent}>
+                <Text style={styles.bigAddButtonIcon}>⚡</Text>
+                <Text style={styles.bigAddButtonText}>+1 Add Stamp</Text>
+              </View>
             )}
           </TouchableOpacity>
         </View>
@@ -714,66 +780,76 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({ shop }) => {
         {/* ---------------------------------------------------- */}
         {/* MATCHING SEARCH RESULTS / HINTS (When typing) */}
         {/* ---------------------------------------------------- */}
-        {matchingCustomers.length > 0 && (
+        {matchingCustomers.length > 0 ? (
           <View style={styles.quickSection}>
-            <Text style={styles.quickSectionTitle}>🔍 Matching Active Customers (Tap to +1 Stamp):</Text>
+            <Text style={styles.quickSectionTitle}>MATCHING ACTIVE CUSTOMERS</Text>
             {matchingCustomers.map((cust) => (
               <View key={cust.id} style={styles.customerRow}>
-                <View style={styles.customerRowInfo}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' }}>
-                    {cust.name ? (
-                      <Text style={{ fontSize: 14, fontWeight: '700', color: '#1E293B' }}>
-                        👤 {cust.name} •{' '}
-                      </Text>
-                    ) : null}
-                    <Text style={styles.customerRowPhone}>{formatPhoneForDisplay(cust.phone)}</Text>
-                  </View>
-                  <Text style={styles.customerRowStamps}>
-                    ★ {cust.current_stamps} / {shop.stamps_required} stamps
+                <View style={styles.customerAvatar}>
+                  <Text style={styles.customerAvatarText}>
+                    {getInitials(cust.name, cust.phone)}
                   </Text>
+                </View>
+                <View style={styles.customerRowInfo}>
+                  <Text style={styles.customerRowName} numberOfLines={1}>
+                    {cust.name ? cust.name : 'Loyalty Member'}
+                  </Text>
+                  <Text style={styles.customerRowPhone}>
+                    {formatPhoneForDisplay(cust.phone)}
+                  </Text>
+                  <View style={styles.miniStarProgressRow}>
+                    <Text style={styles.miniStarProgressText}>
+                      ★ {cust.current_stamps}/{shop.stamps_required} stamps
+                    </Text>
+                  </View>
                 </View>
                 <TouchableOpacity
                   style={styles.quickStampBtn}
                   onPress={() => handleAddStamp(cust.phone)}
+                  activeOpacity={0.8}
                 >
                   <Text style={styles.quickStampBtnText}>+1 Stamp</Text>
                 </TouchableOpacity>
               </View>
             ))}
           </View>
-        )}
-
-        {/* ---------------------------------------------------- */}
-        {/* RECENT CUSTOMERS (When input is empty) */}
-        {/* ---------------------------------------------------- */}
-        {matchingCustomers.length === 0 && recentCustomers.length > 0 && (
+        ) : recentCustomers.length > 0 ? (
+          /* ---------------------------------------------------- */
+          /* RECENT CUSTOMERS (When input is empty) */
+          /* ---------------------------------------------------- */
           <View style={styles.quickSection}>
-            <Text style={styles.quickSectionTitle}>⚡ Recent Active Customers (1-Tap +1 Stamp):</Text>
+            <Text style={styles.quickSectionTitle}>RECENT VISITS (1-TAP RE-STAMP)</Text>
             {recentCustomers.map((cust) => (
               <View key={cust.id} style={styles.customerRow}>
-                <View style={styles.customerRowInfo}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' }}>
-                    {cust.name ? (
-                      <Text style={{ fontSize: 14, fontWeight: '700', color: '#1E293B' }}>
-                        👤 {cust.name} •{' '}
-                      </Text>
-                    ) : null}
-                    <Text style={styles.customerRowPhone}>{formatPhoneForDisplay(cust.phone)}</Text>
-                  </View>
-                  <Text style={styles.customerRowStamps}>
-                    ★ {cust.current_stamps} / {shop.stamps_required} stamps
+                <View style={styles.customerAvatar}>
+                  <Text style={styles.customerAvatarText}>
+                    {getInitials(cust.name, cust.phone)}
                   </Text>
+                </View>
+                <View style={styles.customerRowInfo}>
+                  <Text style={styles.customerRowName} numberOfLines={1}>
+                    {cust.name ? cust.name : 'Loyalty Member'}
+                  </Text>
+                  <Text style={styles.customerRowPhone}>
+                    {formatPhoneForDisplay(cust.phone)}
+                  </Text>
+                  <View style={styles.miniStarProgressRow}>
+                    <Text style={styles.miniStarProgressText}>
+                      ★ {cust.current_stamps}/{shop.stamps_required} stamps
+                    </Text>
+                  </View>
                 </View>
                 <TouchableOpacity
                   style={styles.quickStampBtn}
                   onPress={() => handleAddStamp(cust.phone)}
+                  activeOpacity={0.8}
                 >
                   <Text style={styles.quickStampBtnText}>+1 Stamp</Text>
                 </TouchableOpacity>
               </View>
             ))}
           </View>
-        )}
+        ) : null}
       </ScrollView>
 
       {/* ---------------------------------------------------- */}
@@ -788,10 +864,16 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({ shop }) => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>🔔 Stamp Requests ({pendingRequests.length})</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Text style={styles.modalTitle}>🔔 Stamp Requests</Text>
+                <View style={styles.modalCountPill}>
+                  <Text style={styles.modalCountPillText}>{pendingRequests.length}</Text>
+                </View>
+              </View>
               <TouchableOpacity
                 style={styles.modalCloseBtn}
                 onPress={() => setShowRequestsModal(false)}
+                activeOpacity={0.7}
               >
                 <Text style={styles.modalCloseText}>✕</Text>
               </TouchableOpacity>
@@ -801,18 +883,24 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({ shop }) => {
               {pendingRequests.length === 0 ? (
                 <View style={styles.emptyRequestsBox}>
                   <Text style={styles.emptyRequestsIcon}>☕</Text>
-                  <Text style={styles.emptyRequestsTitle}>No Pending Requests</Text>
+                  <Text style={styles.emptyRequestsTitle}>Queue Is Clear</Text>
                   <Text style={styles.emptyRequestsSubtitle}>
-                    When customers tap "Request a stamp" on their web card, they will appear here in real time.
+                    When customers scan their card and tap "Request a stamp", requests will arrive here instantly.
                   </Text>
                 </View>
               ) : (
                 pendingRequests.map((req) => (
                   <View key={req.id} style={styles.singleLineRequestRowModal}>
+                    <View style={styles.requestAvatarCircle}>
+                      <Text style={styles.requestAvatarText}>
+                        {getInitials(req.customer_name, req.phone)}
+                      </Text>
+                    </View>
+
                     <View style={styles.requestLeftCol}>
                       {req.customer_name ? (
-                        <Text style={{ fontSize: 13, fontWeight: '700', color: '#1E293B', marginBottom: 2 }} numberOfLines={1}>
-                          👤 {req.customer_name}
+                        <Text style={styles.requestCustomerName} numberOfLines={1}>
+                          {req.customer_name}
                         </Text>
                       ) : null}
                       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -826,7 +914,6 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({ shop }) => {
                     </View>
 
                     <View style={styles.requestRightCol}>
-                      {/* Green Accept Button */}
                       <TouchableOpacity
                         style={[
                           styles.singleLineAcceptBtn,
@@ -834,6 +921,7 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({ shop }) => {
                         ]}
                         onPress={() => handleResolveRequest(req.id, 'accept')}
                         disabled={resolvingId === req.id}
+                        activeOpacity={0.8}
                       >
                         {resolvingId === req.id ? (
                           <ActivityIndicator size="small" color="#FFFFFF" />
@@ -842,7 +930,6 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({ shop }) => {
                         )}
                       </TouchableOpacity>
 
-                      {/* Red Reject Button */}
                       <TouchableOpacity
                         style={[
                           styles.singleLineRejectBtn,
@@ -850,8 +937,9 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({ shop }) => {
                         ]}
                         onPress={() => handleResolveRequest(req.id, 'reject')}
                         disabled={resolvingId === req.id}
+                        activeOpacity={0.7}
                       >
-                        <Text style={styles.singleLineRejectText}>✕ Reject</Text>
+                        <Text style={styles.singleLineRejectText}>✕</Text>
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -862,8 +950,9 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({ shop }) => {
             <TouchableOpacity
               style={styles.modalDoneBtn}
               onPress={() => setShowRequestsModal(false)}
+              activeOpacity={0.8}
             >
-              <Text style={styles.modalDoneBtnText}>Close</Text>
+              <Text style={styles.modalDoneBtnText}>Done</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -880,15 +969,19 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({ shop }) => {
       >
         <View style={styles.confirmModalOverlay}>
           <View style={styles.confirmModalCard}>
-            <Text style={styles.confirmModalIcon}>⚡</Text>
-            <Text style={styles.confirmModalTitle}>Add Stamp?</Text>
+            <View style={styles.confirmModalIconCircle}>
+              <Text style={styles.confirmModalIcon}>⚡</Text>
+            </View>
+            <Text style={styles.confirmModalTitle}>Confirm +1 Stamp</Text>
             <Text style={styles.confirmModalMessage}>
-              Are you sure you want to add +1 stamp for{' '}
-              <Text style={styles.confirmModalPhone}>
+              Are you sure you want to add a loyalty stamp for:
+            </Text>
+
+            <View style={styles.confirmPhoneBadge}>
+              <Text style={styles.confirmPhoneBadgeText}>
                 {pendingStampPhone ? formatPhoneForDisplay(pendingStampPhone) : ''}
               </Text>
-              ?
-            </Text>
+            </View>
 
             <View style={styles.confirmModalButtonsRow}>
               <TouchableOpacity
@@ -898,14 +991,16 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({ shop }) => {
                   setPendingStampPhone(null);
                 }}
                 disabled={loading}
+                activeOpacity={0.7}
               >
-                <Text style={styles.confirmModalCancelText}>No, Cancel</Text>
+                <Text style={styles.confirmModalCancelText}>Cancel</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 style={styles.confirmModalConfirmBtn}
                 onPress={executeConfirmedStamp}
                 disabled={loading}
+                activeOpacity={0.85}
               >
                 {loading ? (
                   <ActivityIndicator color="#FFFFFF" size="small" />
@@ -932,7 +1027,7 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({ shop }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#F8FAFC',
   },
   scrollContent: {
     padding: 16,
@@ -942,27 +1037,57 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 14,
+    marginBottom: 16,
     gap: 10,
+  },
+  headerBrandContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: 10,
+    marginRight: 6,
+  },
+  shopAvatar: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1.5,
+    borderColor: '#BFDBFE',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  shopAvatarText: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#1D4ED8',
   },
   headerTitles: {
     flex: 1,
   },
+  shopNameText: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#0F172A',
+    letterSpacing: -0.3,
+  },
+  rewardPill: {
+    marginTop: 3,
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+  },
+  rewardPillText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#475569',
+  },
   headerBadges: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-  },
-  shopNameText: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#1E3A8A',
-  },
-  rewardSubtext: {
-    fontSize: 12,
-    color: '#6B7280',
-    marginTop: 2,
-    fontWeight: '500',
+    gap: 6,
   },
   newRequestsBtn: {
     flexDirection: 'row',
@@ -971,13 +1096,13 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
     borderWidth: 1.5,
     paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingVertical: 7,
     borderRadius: 20,
     gap: 4,
-    shadowColor: '#000',
+    shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
-    shadowRadius: 2,
+    shadowRadius: 3,
     elevation: 1,
   },
   newRequestsBtnActive: {
@@ -1012,40 +1137,61 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   shiftBadge: {
-    backgroundColor: '#EFF6FF',
-    borderColor: '#BFDBFE',
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E2E8F0',
     borderWidth: 1,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
     borderRadius: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  shiftBadgeDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#10B981',
   },
   shiftBadgeText: {
-    color: '#1D4ED8',
+    color: '#334155',
     fontWeight: '700',
-    fontSize: 11,
+    fontSize: 12,
   },
   requestsPanel: {
-    backgroundColor: '#FFFBEB',
-    borderColor: '#F59E0B',
+    backgroundColor: '#FEFCE8',
+    borderColor: '#FDE047',
     borderWidth: 1.5,
-    borderRadius: 14,
-    padding: 12,
-    marginBottom: 14,
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 16,
+    shadowColor: '#D97706',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  livePulseDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#DC2626',
   },
   requestsPanelHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 4,
   },
   requestsPanelTitle: {
-    fontSize: 13,
-    fontWeight: '800',
+    fontSize: 12,
+    fontWeight: '900',
     color: '#92400E',
+    letterSpacing: 0.5,
   },
   requestsPanelViewAll: {
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '800',
     color: '#2563EB',
   },
   singleLineRequestRow: {
@@ -1053,12 +1199,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: '#FFFFFF',
-    paddingVertical: 8,
+    paddingVertical: 9,
     paddingHorizontal: 12,
-    borderRadius: 10,
-    marginBottom: 6,
+    borderRadius: 12,
+    marginTop: 8,
     borderWidth: 1,
-    borderColor: '#FDE68A',
+    borderColor: '#FEF08A',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 2,
+    elevation: 1,
   },
   singleLineRequestRowModal: {
     flexDirection: 'row',
@@ -1072,17 +1223,37 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
+  requestAvatarCircle: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#EFF6FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+  },
+  requestAvatarText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#1D4ED8',
+  },
   requestLeftCol: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
+    justifyContent: 'center',
     marginRight: 8,
-    flexWrap: 'nowrap',
+  },
+  requestCustomerName: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginBottom: 1,
   },
   requestPhoneText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
-    color: '#1E293B',
+    color: '#334155',
   },
   requestTimeAgoText: {
     fontSize: 11,
@@ -1097,17 +1268,17 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   singleLineAcceptBtn: {
-    backgroundColor: '#16A34A', // Green
-    paddingHorizontal: 12,
-    paddingVertical: 7,
+    backgroundColor: '#16A34A',
+    paddingHorizontal: 13,
+    paddingVertical: 8,
     borderRadius: 8,
-    minWidth: 72,
+    minWidth: 70,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#16A34A',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
+    shadowOpacity: 0.25,
+    shadowRadius: 3,
     elevation: 2,
   },
   singleLineAcceptText: {
@@ -1116,15 +1287,17 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   singleLineRejectBtn: {
-    backgroundColor: '#DC2626', // Red
+    backgroundColor: '#F1F5F9',
+    borderColor: '#CBD5E1',
+    borderWidth: 1,
     paddingHorizontal: 10,
-    paddingVertical: 7,
+    paddingVertical: 8,
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },
   singleLineRejectText: {
-    color: '#FFFFFF',
+    color: '#64748B',
     fontSize: 12,
     fontWeight: '800',
   },
@@ -1133,7 +1306,7 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(15, 23, 42, 0.55)',
     justifyContent: 'flex-end',
   },
   modalContainer: {
@@ -1157,6 +1330,19 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '800',
     color: '#0F172A',
+  },
+  modalCountPill: {
+    backgroundColor: '#EFF6FF',
+    borderColor: '#BFDBFE',
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+  },
+  modalCountPillText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#1D4ED8',
   },
   modalCloseBtn: {
     width: 32,
@@ -1197,7 +1383,7 @@ const styles = StyleSheet.create({
   },
   modalDoneBtn: {
     backgroundColor: '#F1F5F9',
-    paddingVertical: 12,
+    paddingVertical: 13,
     borderRadius: 12,
     alignItems: 'center',
     marginTop: 14,
@@ -1211,16 +1397,33 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#1E293B',
-    borderRadius: 12,
+    backgroundColor: '#0F172A',
+    borderRadius: 14,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    marginBottom: 14,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  undoProgressCircle: {
+    backgroundColor: '#334155',
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  undoProgressText: {
+    color: '#F8FAFC',
+    fontSize: 11,
+    fontWeight: '800',
   },
   undoText: {
     color: '#F8FAFC',
     fontSize: 13,
     fontWeight: '600',
+    flex: 1,
   },
   undoButton: {
     backgroundColor: '#EF4444',
@@ -1235,20 +1438,39 @@ const styles = StyleSheet.create({
   },
   inputCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 18,
+    borderRadius: 20,
+    padding: 20,
     marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
     elevation: 2,
   },
-  inputLabel: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#374151',
-    marginBottom: 10,
+  inputHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  inputSectionLabel: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#64748B',
+    letterSpacing: 0.6,
+  },
+  activeCheckBadge: {
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  activeCheckBadgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#059669',
   },
   phoneInputRow: {
     flexDirection: 'row',
@@ -1258,12 +1480,12 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderRadius: 14,
     paddingHorizontal: 12,
-    minHeight: 56,
-    marginBottom: 6,
+    minHeight: 58,
+    marginBottom: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
+    shadowOpacity: 0.03,
+    shadowRadius: 2,
     elevation: 1,
   },
   countryButton: {
@@ -1281,20 +1503,20 @@ const styles = StyleSheet.create({
   },
   countryDialCode: {
     fontSize: 15,
-    fontWeight: '700',
-    color: '#1F2937',
+    fontWeight: '800',
+    color: '#0F172A',
   },
   countryDropdownArrow: {
     fontSize: 12,
-    color: '#9CA3AF',
-    marginLeft: 4,
+    color: '#94A3B8',
+    marginLeft: 3,
   },
   phoneInput: {
     flex: 1,
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: 20,
+    fontWeight: '800',
     color: '#0F172A',
-    paddingVertical: 12,
+    paddingVertical: 10,
     letterSpacing: 0.5,
   },
   clearBtn: {
@@ -1308,14 +1530,14 @@ const styles = StyleSheet.create({
   },
   clearBtnText: {
     color: '#64748B',
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '800',
   },
   phoneHintRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingHorizontal: 4,
-    marginBottom: 14,
+    marginBottom: 16,
   },
   phoneHintText: {
     fontSize: 12,
@@ -1323,140 +1545,212 @@ const styles = StyleSheet.create({
   },
   phoneHintBold: {
     fontWeight: '700',
-    color: '#1E3A8A',
+    color: '#1E40AF',
   },
   bigAddButton: {
     backgroundColor: '#2563EB',
-    borderRadius: 12,
+    borderRadius: 14,
     paddingVertical: 16,
     alignItems: 'center',
+    justifyContent: 'center',
     shadowColor: '#2563EB',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 5,
+  },
+  bigAddButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  bigAddButtonIcon: {
+    fontSize: 18,
+    color: '#FBBF24',
   },
   bigAddButtonText: {
     color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '800',
+    fontSize: 17,
+    fontWeight: '900',
+    letterSpacing: 0.3,
   },
   buttonDisabled: {
     opacity: 0.6,
   },
   quickSection: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderRadius: 18,
     padding: 16,
     marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 6,
+    elevation: 1,
   },
   quickSectionTitle: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '800',
-    color: '#6B7280',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 10,
+    color: '#64748B',
+    letterSpacing: 0.6,
+    marginBottom: 12,
   },
   customerRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: '#F1F5F9',
+  },
+  customerAvatar: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  customerAvatarText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#1D4ED8',
   },
   customerRowInfo: {
     flex: 1,
+    marginHorizontal: 12,
+  },
+  customerRowName: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#0F172A',
   },
   customerRowPhone: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#1F2937',
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#475569',
+    marginTop: 1,
   },
-  customerRowStamps: {
-    fontSize: 12,
-    color: '#2563EB',
-    fontWeight: '700',
+  miniStarProgressRow: {
     marginTop: 2,
+  },
+  miniStarProgressText: {
+    fontSize: 11,
+    color: '#2563EB',
+    fontWeight: '800',
   },
   quickStampBtn: {
     backgroundColor: '#EFF6FF',
     borderColor: '#BFDBFE',
     borderWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
+    paddingHorizontal: 13,
+    paddingVertical: 7,
+    borderRadius: 10,
   },
   quickStampBtnText: {
     color: '#1D4ED8',
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '800',
   },
   successBanner: {
     backgroundColor: '#ECFDF5',
     borderColor: '#10B981',
     borderWidth: 1.5,
-    borderRadius: 14,
+    borderRadius: 18,
     padding: 16,
     alignItems: 'center',
-    marginBottom: 14,
+    marginBottom: 16,
+  },
+  successBannerIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#10B981',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  successBannerIconText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '900',
   },
   successBannerTitle: {
     fontSize: 18,
-    fontWeight: '800',
+    fontWeight: '900',
     color: '#065F46',
-    marginBottom: 4,
+    marginTop: 8,
+    marginBottom: 2,
   },
   successBannerSubtitle: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#047857',
     fontWeight: '600',
-    marginBottom: 12,
+    marginBottom: 8,
   },
   cardFullBanner: {
     backgroundColor: '#FEF3C7',
     borderColor: '#F59E0B',
     borderWidth: 2,
-    borderRadius: 14,
-    padding: 16,
+    borderRadius: 18,
+    padding: 18,
     alignItems: 'center',
-    marginBottom: 14,
+    marginBottom: 16,
+  },
+  cardFullTrophyCircle: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: '#FDE68A',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cardFullTrophyText: {
+    fontSize: 24,
   },
   cardFullTitle: {
     fontSize: 20,
     fontWeight: '900',
     color: '#92400E',
-    marginBottom: 4,
+    marginTop: 8,
+    marginBottom: 2,
   },
   cardFullSubtitle: {
     fontSize: 14,
     color: '#B45309',
     fontWeight: '700',
-    marginBottom: 12,
+    marginBottom: 10,
     textAlign: 'center',
   },
   rewardButton: {
     backgroundColor: '#D97706',
-    borderRadius: 10,
-    paddingVertical: 12,
+    borderRadius: 12,
+    paddingVertical: 14,
     paddingHorizontal: 24,
     marginTop: 8,
     width: '100%',
     alignItems: 'center',
+    shadowColor: '#D97706',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 3,
   },
   rewardButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
-    fontWeight: '800',
+    fontWeight: '900',
   },
   tooSoonBanner: {
     backgroundColor: '#FFFBEB',
     borderColor: '#F59E0B',
     borderWidth: 1.5,
-    borderRadius: 14,
+    borderRadius: 16,
     padding: 14,
-    marginBottom: 14,
+    marginBottom: 16,
   },
   tooSoonTitle: {
     fontSize: 16,
@@ -1473,90 +1767,115 @@ const styles = StyleSheet.create({
     backgroundColor: '#FEE2E2',
     borderColor: '#EF4444',
     borderWidth: 1,
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 14,
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 16,
   },
   errorText: {
     color: '#991B1B',
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '700',
     textAlign: 'center',
   },
-  circlesGrid: {
+  stampSpotsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'center',
     gap: 8,
-    marginVertical: 6,
+    marginVertical: 8,
   },
-  circle: {
+  stampSpot: {
     width: 38,
     height: 38,
-    borderRadius: 19,
-    borderWidth: 2,
-    borderColor: '#D1D5DB',
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  circleFilled: {
-    backgroundColor: '#2563EB',
-    borderColor: '#1D4ED8',
+  stampSpotFilled: {
+    backgroundColor: '#1E3A8A',
+    borderColor: '#1E3A8A',
+    shadowColor: '#1E3A8A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  circleText: {
+  stampSpotText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#9CA3AF',
+    color: '#94A3B8',
   },
-  circleTextFilled: {
+  stampSpotTextFilled: {
     color: '#FBBF24',
     fontSize: 16,
+    fontWeight: '900',
   },
   confirmModalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.55)',
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
   },
   confirmModalCard: {
     width: '100%',
-    maxWidth: 380,
+    maxWidth: 360,
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
+    borderRadius: 24,
     padding: 24,
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 16,
     elevation: 8,
   },
+  confirmModalIconCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#EFF6FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: '#BFDBFE',
+  },
   confirmModalIcon: {
-    fontSize: 36,
-    marginBottom: 8,
+    fontSize: 26,
   },
   confirmModalTitle: {
     fontSize: 20,
-    fontWeight: '800',
-    color: '#1E293B',
-    marginBottom: 8,
+    fontWeight: '900',
+    color: '#0F172A',
+    marginTop: 10,
+    marginBottom: 4,
   },
   confirmModalMessage: {
-    fontSize: 15,
+    fontSize: 14,
     color: '#475569',
     textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: 20,
+    lineHeight: 20,
   },
-  confirmModalPhone: {
+  confirmPhoneBadge: {
+    backgroundColor: '#F1F5F9',
+    borderColor: '#E2E8F0',
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginVertical: 14,
+  },
+  confirmPhoneBadgeText: {
     fontWeight: '800',
     color: '#1E3A8A',
+    fontSize: 16,
   },
   confirmModalButtonsRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 10,
     width: '100%',
   },
   confirmModalCancelBtn: {
@@ -1567,16 +1886,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#CBD5E1',
+    borderColor: '#E2E8F0',
   },
   confirmModalCancelText: {
     color: '#475569',
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
   },
   confirmModalConfirmBtn: {
-    flex: 1,
-    backgroundColor: '#16A34A', // Green
+    flex: 1.2,
+    backgroundColor: '#16A34A',
     paddingVertical: 13,
     borderRadius: 12,
     alignItems: 'center',
@@ -1589,7 +1908,7 @@ const styles = StyleSheet.create({
   },
   confirmModalConfirmText: {
     color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '800',
+    fontSize: 14,
+    fontWeight: '900',
   },
 });
