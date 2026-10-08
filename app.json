@@ -35,7 +35,16 @@
           "resizeMode": "contain",
           "backgroundColor": "#173A8A"
         }
-      ]
-    ]
+      ],
+      "expo-updates"
+    ],
+    "updates": {
+      "url": "https://u.expo.dev/44b91ac8-b847-422c-9849-4c257ca2723e",
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    }
   }
 }
