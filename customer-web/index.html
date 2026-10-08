@@ -7,42 +7,48 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <title>StampUp - Digital Loyalty Card</title>
-  <meta name="theme-color" content="#2563EB">
+  <meta name="theme-color" content="#0F172A">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="icon" type="image/png" href="/favicon.png">
   <link rel="apple-touch-icon" href="/icon.png">
   <link id="pwaManifestLink" rel="manifest" href="/manifest.json">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
     :root {
       --primary: #2563EB;
       --primary-dark: #1D4ED8;
-      --bg: #F3F4F6;
-      --card-bg: #FFFFFF;
-      --text-main: #111827;
-      --text-muted: #6B7280;
-      --success: #059669;
-      --success-bg: #ECFDF5;
-      --error-bg: #FEE2E2;
-      --error-text: #991B1B;
+      --accent: #10B981;
+      --accent-dark: #059669;
+      --bg: #F8FAFC;
+      --surface: #FFFFFF;
+      --text-main: #0F172A;
+      --text-muted: #64748B;
+      --border: #E2E8F0;
+      --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.05);
+      --shadow-md: 0 4px 14px rgba(15, 23, 42, 0.06);
+      --shadow-lg: 0 20px 35px -10px rgba(15, 23, 42, 0.1);
     }
 
     * {
       box-sizing: border-box;
       margin: 0;
       padding: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      -webkit-tap-highlight-color: transparent;
     }
 
     body {
-      background-color: var(--bg);
+      background: linear-gradient(180deg, #F1F5F9 0%, #F8FAFC 240px, #F8FAFC 100%);
       color: var(--text-main);
       display: flex;
       justify-content: center;
       align-items: flex-start;
       min-height: 100vh;
-      padding: 20px 16px;
+      padding: 24px 16px 40px;
     }
 
     .container {
@@ -51,39 +57,93 @@
       margin: 0 auto;
     }
 
-    /* Shop Header */
+    /* Shop Brand Header */
     .header {
       text-align: center;
       margin-bottom: 20px;
     }
 
-    .badge {
-      display: inline-block;
-      background: #EFF6FF;
-      color: var(--primary);
-      font-size: 13px;
+    .brand-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #FFFFFF;
+      color: #0F172A;
+      font-size: 12px;
       font-weight: 700;
-      padding: 4px 12px;
+      padding: 5px 14px;
       border-radius: 20px;
-      margin-bottom: 8px;
-      border: 1px solid #BFDBFE;
+      margin-bottom: 10px;
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-sm);
+      letter-spacing: 0.3px;
+    }
+
+    .brand-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #2563EB;
     }
 
     .shop-title {
       font-size: 26px;
       font-weight: 800;
-      color: #1E3A8A;
+      color: #0F172A;
+      letter-spacing: -0.6px;
+      line-height: 1.25;
       word-break: break-word;
+    }
+
+    .shop-meta-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 8px;
+      flex-wrap: wrap;
+    }
+
+    .shop-number-tag {
+      background: #E2E8F0;
+      color: #334155;
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .shop-map-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: #FFFFFF;
+      color: #2563EB;
+      border: 1px solid #BFDBFE;
+      padding: 4px 12px;
+      border-radius: 14px;
+      font-size: 12px;
+      font-weight: 700;
+      text-decoration: none;
+      box-shadow: var(--shadow-sm);
+      transition: all 0.2s;
+    }
+
+    .shop-map-link:active {
+      transform: scale(0.97);
+      background: #EFF6FF;
     }
 
     /* Cards */
     .card {
-      background: var(--card-bg);
-      border-radius: 18px;
+      background: var(--surface);
+      border-radius: 22px;
       padding: 24px 20px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-      border: 1px solid #E5E7EB;
+      box-shadow: var(--shadow-lg);
+      border: 1px solid var(--border);
       margin-bottom: 16px;
+      position: relative;
+      overflow: hidden;
     }
 
     .input-header-row {
@@ -94,19 +154,39 @@
     }
 
     .input-label {
-      font-size: 15px;
+      font-size: 14px;
       font-weight: 700;
-      color: #1E293B;
+      color: #0F172A;
       margin-bottom: 0;
     }
 
     .input-subtext {
       font-size: 12px;
       font-weight: 600;
-      color: #64748B;
+      color: var(--text-muted);
     }
 
-    /* Cohesive Unified Phone Input Group */
+    /* Form Fields */
+    .name-input {
+      width: 100%;
+      background: #FFFFFF;
+      border: 1.5px solid #CBD5E1;
+      border-radius: 14px;
+      height: 52px;
+      padding: 0 14px;
+      font-size: 15px;
+      font-weight: 600;
+      color: #0F172A;
+      outline: none;
+      transition: all 0.2s ease;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .name-input:focus {
+      border-color: #2563EB;
+      box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+    }
+
     .phone-group-container {
       display: flex;
       align-items: center;
@@ -116,15 +196,13 @@
       height: 56px;
       padding: 0 12px;
       transition: all 0.2s ease;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-      position: relative;
+      box-shadow: var(--shadow-sm);
       margin-bottom: 6px;
     }
 
     .phone-group-container:focus-within {
       border-color: #2563EB;
-      box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.15);
-      background: #FFFFFF;
+      box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
     }
 
     .country-pill {
@@ -141,7 +219,7 @@
       appearance: none;
       background: transparent;
       border: none;
-      font-size: 15px;
+      font-size: 14px;
       font-weight: 700;
       color: #0F172A;
       outline: none;
@@ -159,8 +237,8 @@
     }
 
     .phone-divider {
-      width: 1.5px;
-      height: 26px;
+      width: 1px;
+      height: 24px;
       background: #E2E8F0;
       margin: 0 10px;
       flex-shrink: 0;
@@ -172,7 +250,7 @@
       background: transparent;
       border: none;
       outline: none;
-      font-size: 18px;
+      font-size: 17px;
       font-weight: 700;
       color: #0F172A;
       padding: 0;
@@ -183,18 +261,18 @@
     .phone-input::placeholder {
       color: #94A3B8;
       font-weight: 500;
-      font-size: 16px;
+      font-size: 15px;
     }
 
     .clear-btn {
       display: none;
       background: #F1F5F9;
       border: none;
-      width: 26px;
-      height: 26px;
+      width: 24px;
+      height: 24px;
       border-radius: 50%;
       color: #64748B;
-      font-size: 13px;
+      font-size: 12px;
       font-weight: 700;
       cursor: pointer;
       align-items: center;
@@ -214,30 +292,32 @@
       justify-content: space-between;
       margin-bottom: 16px;
       font-size: 12px;
-      color: #64748B;
+      color: var(--text-muted);
       padding: 0 4px;
     }
 
+    /* Buttons */
     .btn {
       width: 100%;
-      background: var(--primary);
+      background: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%);
       color: #FFFFFF;
-      font-size: 17px;
+      font-size: 16px;
       font-weight: 700;
-      padding: 16px;
+      padding: 15px;
       border: none;
-      border-radius: 12px;
+      border-radius: 14px;
       cursor: pointer;
       display: flex;
       justify-content: center;
       align-items: center;
-      transition: background 0.2s, transform 0.1s;
-      box-shadow: 0 4px 10px rgba(37, 99, 235, 0.3);
+      gap: 8px;
+      transition: all 0.15s ease;
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
     }
 
     .btn:active {
       transform: scale(0.98);
-      background: var(--primary-dark);
+      box-shadow: 0 2px 6px rgba(37, 99, 235, 0.2);
     }
 
     .btn:disabled {
@@ -246,215 +326,270 @@
     }
 
     .btn-request {
-      background: #059669;
-      box-shadow: 0 4px 10px rgba(5, 150, 105, 0.25);
-      margin-top: 12px;
+      background: linear-gradient(135deg, #059669 0%, #047857 100%);
+      box-shadow: 0 4px 12px rgba(5, 150, 105, 0.25);
     }
 
     .btn-request:active {
       background: #047857;
     }
 
+    .btn-secondary {
+      background: #FFFFFF;
+      color: #334155;
+      border: 1.5px solid #E2E8F0;
+      font-size: 14px;
+      font-weight: 700;
+      padding: 13px;
+      border-radius: 14px;
+      cursor: pointer;
+      width: 100%;
+      margin-top: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.15s;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .btn-secondary:active {
+      background: #F8FAFC;
+      transform: scale(0.99);
+    }
+
     .request-status-box {
       display: none;
-      margin-top: 12px;
+      margin-top: 10px;
       padding: 12px 14px;
       border-radius: 12px;
-      font-size: 14px;
+      font-size: 13px;
       font-weight: 600;
       text-align: center;
       background: #ECFDF5;
       border: 1.5px solid #10B981;
       color: #065F46;
       line-height: 1.4;
+      animation: fadeIn 0.2s ease;
     }
 
-    /* Stamp Circles Result View */
+    /* Result Loyalty Pass Card */
     .result-section {
       display: none;
-      animation: fadeIn 0.3s ease-in-out;
+      animation: cardSlideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1);
     }
 
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(6px); }
-      to { opacity: 1; transform: translateY(0); }
+    @keyframes cardSlideUp {
+      from { opacity: 0; transform: translateY(12px) scale(0.98); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    /* Wallet Pass Top Header */
+    .pass-top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 14px;
+      margin-bottom: 14px;
+      border-bottom: 1px dashed #E2E8F0;
+    }
+
+    .pass-tag {
+      font-size: 11px;
+      font-weight: 800;
+      color: #1E40AF;
+      background: #EFF6FF;
+      border: 1px solid #BFDBFE;
+      padding: 3px 10px;
+      border-radius: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .customer-pill {
+      font-size: 13px;
+      font-weight: 700;
+      color: #0F172A;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Stamp Count & Progress */
+    .stamp-hero-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 8px;
     }
 
     .stamp-count-text {
       font-size: 24px;
       font-weight: 800;
-      color: #1E3A8A;
-      text-align: center;
-      margin-bottom: 16px;
+      color: #0F172A;
+      letter-spacing: -0.5px;
     }
 
+    .stamp-fraction-badge {
+      font-size: 13px;
+      font-weight: 800;
+      color: #2563EB;
+      background: #EFF6FF;
+      padding: 4px 10px;
+      border-radius: 20px;
+    }
+
+    .progress-track {
+      height: 7px;
+      background: #F1F5F9;
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: 18px;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #2563EB 0%, #3B82F6 100%);
+      border-radius: 4px;
+      transition: width 0.4s ease;
+    }
+
+    .progress-fill.full {
+      background: linear-gradient(90deg, #10B981 0%, #059669 100%);
+    }
+
+    /* Squircle Stamp Grid */
     .circles-grid {
       display: flex;
       flex-wrap: wrap;
       justify-content: center;
       gap: 10px;
-      margin: 16px 0 20px 0;
+      margin-bottom: 20px;
+      padding: 4px 0;
     }
 
     .stamp-circle {
-      width: 44px;
-      height: 44px;
-      border-radius: 50%;
-      border: 2.5px solid #CBD5E1;
-      background: #FFFFFF;
+      width: 48px;
+      height: 48px;
+      border-radius: 14px;
+      border: 2px solid #E2E8F0;
+      background: #F8FAFC;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 15px;
+      font-size: 14px;
       font-weight: 800;
       color: #94A3B8;
       transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+      box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.03);
     }
 
     .stamp-circle.filled {
-      background: var(--primary);
-      border-color: var(--primary);
+      background: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%);
+      border-color: #2563EB;
       color: #FFFFFF;
-      font-size: 22px;
-      transform: scale(1.05);
-      box-shadow: 0 4px 8px rgba(37, 99, 235, 0.25);
+      font-size: 20px;
+      transform: scale(1.04);
+      box-shadow: 0 4px 10px rgba(37, 99, 235, 0.3);
     }
 
     .reward-box {
-      background: #EFF6FF;
-      border: 1.5px solid #BFDBFE;
-      border-radius: 12px;
+      background: #FEF3C7;
+      border: 1.5px solid #FDE68A;
+      border-radius: 14px;
       padding: 14px;
       text-align: center;
-      margin-bottom: 16px;
+      margin-bottom: 18px;
     }
 
     .reward-title {
-      font-size: 15px;
+      font-size: 14px;
       font-weight: 700;
-      color: #1D4ED8;
+      color: #92400E;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
     }
 
     .full-card-banner {
       display: none;
-      background: var(--success-bg);
-      border: 2px solid var(--success);
-      border-radius: 14px;
+      background: #ECFDF5;
+      border: 2px solid #10B981;
+      border-radius: 16px;
       padding: 16px;
       text-align: center;
-      margin-bottom: 16px;
+      margin-bottom: 18px;
     }
 
     .full-card-banner.show {
       display: block;
-      animation: bounceIn 0.5s ease;
+      animation: popBounce 0.4s ease;
     }
 
-    @keyframes bounceIn {
-      0% { transform: scale(0.9); opacity: 0; }
-      50% { transform: scale(1.03); }
+    @keyframes popBounce {
+      0% { transform: scale(0.92); opacity: 0; }
+      60% { transform: scale(1.03); }
       100% { transform: scale(1); opacity: 1; }
     }
 
     .full-title {
-      font-size: 20px;
+      font-size: 18px;
       font-weight: 800;
       color: #065F46;
       margin-bottom: 4px;
     }
 
     .full-subtitle {
-      font-size: 15px;
+      font-size: 14px;
       font-weight: 600;
       color: #047857;
     }
 
-    /* Error & Alert Messages */
+    /* Alert / Error */
     .alert {
       display: none;
-      background: var(--error-bg);
-      border: 1px solid #EF4444;
-      color: var(--error-text);
+      background: #FEF2F2;
+      border: 1.5px solid #FCA5A5;
+      color: #991B1B;
       padding: 12px 14px;
-      border-radius: 10px;
-      font-size: 14px;
+      border-radius: 12px;
+      font-size: 13px;
       font-weight: 600;
-      margin-bottom: 16px;
+      margin-bottom: 14px;
+      line-height: 1.4;
     }
 
     .alert.show {
       display: block;
+      animation: fadeIn 0.2s ease;
     }
 
-    /* Privacy Footer Notice */
     .privacy-notice {
       text-align: center;
-      font-size: 13px;
+      font-size: 12px;
       color: var(--text-muted);
       line-height: 1.5;
       padding: 8px 12px;
     }
 
-    /* Spinner */
     .spinner {
       display: inline-block;
-      width: 20px;
-      height: 20px;
-      border: 3px solid rgba(255,255,255,0.3);
+      width: 18px;
+      height: 18px;
+      border: 2.5px solid rgba(255,255,255,0.3);
       border-radius: 50%;
       border-top-color: #fff;
-      animation: spin 0.8s linear infinite;
+      animation: spin 0.7s linear infinite;
     }
 
     @keyframes spin {
       to { transform: rotate(360deg); }
     }
 
-    .btn-secondary {
-      background: #F3F4F6;
-      color: #4B5563;
-      border: 1px solid #D1D5DB;
-      font-size: 14px;
-      font-weight: 600;
-      padding: 12px;
-      border-radius: 10px;
-      cursor: pointer;
-      width: 100%;
-      margin-top: 10px;
-    }
-
-    /* Customer Name Input */
-    .name-input {
-      width: 100%;
-      background: #FFFFFF;
-      border: 1.5px solid #CBD5E1;
-      border-radius: 14px;
-      height: 52px;
-      padding: 0 14px;
-      font-size: 16px;
-      font-weight: 600;
-      color: #0F172A;
-      outline: none;
-      transition: all 0.2s ease;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-    }
-
-    .name-input:focus {
-      border-color: #2563EB;
-      box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.15);
-    }
-
-    .customer-greeting {
-      background: #EFF6FF;
-      border: 1.5px solid #BFDBFE;
-      color: #1E40AF;
-      font-size: 16px;
-      font-weight: 800;
-      padding: 12px 16px;
-      border-radius: 14px;
-      margin-bottom: 16px;
-      text-align: center;
-      line-height: 1.4;
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
     }
 
     /* Congratulation Modal */
@@ -477,20 +612,20 @@
       left: 0;
       width: 100%;
       height: 100%;
-      background: rgba(15, 23, 42, 0.65);
-      backdrop-filter: blur(4px);
+      background: rgba(15, 23, 42, 0.7);
+      backdrop-filter: blur(6px);
     }
 
     .congrats-card {
       position: relative;
       background: #FFFFFF;
-      border-radius: 20px;
+      border-radius: 24px;
       padding: 28px 22px;
       max-width: 360px;
       width: 100%;
       text-align: center;
-      box-shadow: 0 20px 30px rgba(0, 0, 0, 0.25);
-      animation: popIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+      box-shadow: 0 25px 40px rgba(0, 0, 0, 0.3);
+      animation: popIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
     }
 
     @keyframes popIn {
@@ -499,20 +634,21 @@
     }
 
     .congrats-badge {
-      font-size: 40px;
+      font-size: 44px;
       margin-bottom: 8px;
     }
 
     .congrats-title {
       font-size: 22px;
       font-weight: 800;
-      color: #1E3A8A;
+      color: #0F172A;
+      letter-spacing: -0.4px;
       margin-bottom: 8px;
     }
 
     .congrats-desc {
-      font-size: 15px;
-      color: #334155;
+      font-size: 14px;
+      color: #475569;
       line-height: 1.5;
       margin-bottom: 22px;
       font-weight: 500;
@@ -520,21 +656,20 @@
 
     .congrats-btn {
       width: 100%;
-      background: #16A34A;
+      background: linear-gradient(135deg, #059669 0%, #047857 100%);
       color: #FFFFFF;
       font-size: 16px;
       font-weight: 800;
       padding: 14px;
       border: none;
-      border-radius: 12px;
+      border-radius: 14px;
       cursor: pointer;
-      box-shadow: 0 4px 10px rgba(22, 163, 74, 0.3);
-      transition: transform 0.1s, background 0.2s;
+      box-shadow: 0 4px 12px rgba(5, 150, 105, 0.3);
+      transition: transform 0.1s;
     }
 
     .congrats-btn:active {
       transform: scale(0.98);
-      background: #15803D;
     }
   </style>
 </head>
@@ -542,11 +677,14 @@
   <div class="container">
     <!-- Header -->
     <div class="header">
-      <div class="badge">StampUp Loyalty Card</div>
+      <div class="brand-pill">
+        <span class="brand-dot"></span>
+        <span>Digital Loyalty Card</span>
+      </div>
       <h1 class="shop-title" id="shopName">Loading Shop...</h1>
-      <div id="shopMetaContainer" style="display: none; align-items: center; justify-content: center; gap: 8px; margin-top: 6px; flex-wrap: wrap;">
-        <span id="shopNumberTag" style="display: none; background: #EEF2F6; color: #475569; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 700;"></span>
-        <a id="shopMapLink" href="#" target="_blank" rel="noopener noreferrer" style="display: none; background: #EFF6FF; color: #2563EB; border: 1px solid #BFDBFE; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; text-decoration: none; align-items: center; gap: 4px;">
+      <div id="shopMetaContainer" class="shop-meta-row" style="display: none;">
+        <span id="shopNumberTag" class="shop-number-tag" style="display: none;"></span>
+        <a id="shopMapLink" class="shop-map-link" href="#" target="_blank" rel="noopener noreferrer" style="display: none;">
           📍 <span id="shopMapText">View on Google Maps</span> ↗
         </a>
       </div>
@@ -559,7 +697,7 @@
     <div class="card" id="formCard">
       <!-- Optional Name Field for First-Time Customer -->
       <div id="nameInputWrapper" style="margin-bottom: 14px;">
-        <label class="input-label" for="nameInput" style="margin-bottom: 6px;">Your Name:</label>
+        <label class="input-label" for="nameInput" style="margin-bottom: 6px; display: block;">Your Name:</label>
         <input
           type="text"
           id="nameInput"
@@ -619,7 +757,7 @@
         <span>Format preview: <strong id="hintFormatText">+971 50 123 4567</strong></span>
       </div>
 
-      <!-- Primary Action: Request Stamp at Counter -->
+      <!-- Primary Action: Request a Stamp -->
       <button class="btn btn-request" id="formRequestStampBtn" onclick="handleRequestStamp('form')" style="margin-top: 0; margin-bottom: 10px;">
         ✋ Request a Stamp
       </button>
@@ -633,29 +771,41 @@
 
     <!-- Stamp Card Result Display -->
     <div class="card result-section" id="resultCard">
-      <!-- Customer Name Greeting Banner -->
-      <div class="customer-greeting" id="customerGreeting" style="display: none;">
-        👋 Welcome, <span id="greetingName"></span>!
+      <!-- Pass Top Header -->
+      <div class="pass-top-bar">
+        <div class="customer-pill">
+          <span>👤</span>
+          <span id="greetingName">Loyalty Member</span>
+        </div>
+        <div class="pass-tag">Active Card</div>
       </div>
 
       <!-- Full Card Reward Banner -->
       <div class="full-card-banner" id="fullBanner">
         <div class="full-title">🎉 Your card is full!</div>
-        <div class="full-subtitle">Show this to the cashier for your free reward!</div>
+        <div class="full-subtitle">Show this to the cashier to claim your reward!</div>
       </div>
 
-      <!-- Stamp Count Text -->
-      <div class="stamp-count-text" id="stampCountText">0 of 8 stamps</div>
+      <!-- Stamp Count & Progress Header -->
+      <div class="stamp-hero-row">
+        <div class="stamp-count-text" id="stampCountText">0 of 8 stamps</div>
+        <div class="stamp-fraction-badge" id="stampFractionBadge">0%</div>
+      </div>
 
-      <!-- Circles Grid -->
+      <!-- Visual Progress Bar -->
+      <div class="progress-track">
+        <div class="progress-fill" id="progressFill" style="width: 0%;"></div>
+      </div>
+
+      <!-- Squircle Stamps Grid -->
       <div class="circles-grid" id="circlesGrid"></div>
 
-      <!-- Reward Information -->
+      <!-- Reward Information Box -->
       <div class="reward-box">
-        <div class="reward-title" id="rewardText">At 8 stamps: Free reward</div>
+        <div class="reward-title" id="rewardText">🎁 Free reward at 8 stamps</div>
       </div>
 
-      <!-- Request Stamp Button -->
+      <!-- Request Stamp Action Button -->
       <div id="requestStampWrapper">
         <button class="btn btn-request" id="requestStampBtn" onclick="handleRequestStamp()">
           ✋ Request a Stamp
@@ -663,16 +813,18 @@
         <div class="request-status-box" id="requestStatusBox"></div>
       </div>
 
-      <!-- Check Another Number Button -->
-      <button class="btn-secondary" onclick="resetForm()">Check Another Number</button>
+      <!-- Navigation & Action Buttons -->
+      <button class="btn-secondary" onclick="resetForm()">
+        🔄 Check Another Number
+      </button>
 
       <!-- Save to Home Screen Button -->
-      <button class="btn-secondary" id="installBtn" onclick="handleInstallClick()" style="margin-top: 8px;">
+      <button class="btn-secondary" id="installBtn" onclick="handleInstallClick()">
         📱 Save Card to Home Screen
       </button>
     </div>
 
-    <!-- Persistent Congratulation Modal (vanishes once seen and dismissed) -->
+    <!-- Congratulation Modal (vanishes once seen and dismissed) -->
     <div id="congratsModal" class="congrats-modal" style="display: none;">
       <div class="congrats-backdrop" onclick="dismissCongrats()"></div>
       <div class="congrats-card">
@@ -738,7 +890,6 @@
     const phoneInput = document.getElementById('phoneInput');
     const nameInput = document.getElementById('nameInput');
     const nameWrapper = document.getElementById('nameInputWrapper');
-    const customerGreeting = document.getElementById('customerGreeting');
     const greetingName = document.getElementById('greetingName');
     const congratsModal = document.getElementById('congratsModal');
     const congratsTitle = document.getElementById('congratsTitle');
@@ -748,6 +899,8 @@
     const formCard = document.getElementById('formCard');
     const resultCard = document.getElementById('resultCard');
     const stampCountText = document.getElementById('stampCountText');
+    const stampFractionBadge = document.getElementById('stampFractionBadge');
+    const progressFill = document.getElementById('progressFill');
     const circlesGrid = document.getElementById('circlesGrid');
     const rewardText = document.getElementById('rewardText');
     const fullBanner = document.getElementById('fullBanner');
@@ -764,7 +917,7 @@
       errorBox.classList.remove('show');
     }
 
-    // Phone Input Formatting & Helper Handlers
+    // Phone Input Formatting & Handlers
     function handleCountryChange() {
       const cc = countrySelect.value;
       const ph = phoneInput.value.trim();
@@ -782,7 +935,6 @@
       }
       handleCountryChange();
 
-      // Check if this number already has a remembered name
       const rawDigits = input.value.trim().replace(/[\s\-\(\)\.]/g, '');
       if (rawDigits.length >= 6) {
         const full = getFullPhone();
@@ -835,7 +987,7 @@
       return true;
     }
 
-    // Get Clean Normalized Phone
+    // Normalized Phone
     function getFullPhone() {
       let raw = phoneInput.value.trim().replace(/[\s\-\(\)\.]/g, '');
       if (raw.startsWith('+')) return raw;
@@ -843,7 +995,7 @@
       return countrySelect.value + raw;
     }
 
-    // Dynamic PWA Manifest Generator so saving to Home Screen opens THIS specific customer card
+    // Dynamic PWA Manifest Generator
     function updateDynamicManifest(shopName, phoneVal, ccVal) {
       try {
         const slug = currentSlug || 'my-shop';
@@ -857,8 +1009,8 @@
           start_url: fullCardUrl,
           scope: '/',
           display: 'standalone',
-          background_color: '#F3F4F6',
-          theme_color: '#2563EB',
+          background_color: '#F8FAFC',
+          theme_color: '#0F172A',
           icons: [
             { src: '/icon.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
             { src: '/icon.svg', sizes: '192x192 512x512', type: 'image/svg+xml', purpose: 'any maskable' }
@@ -891,7 +1043,7 @@
 
       currentSlug = getShopSlug();
 
-      // If at root '/' and a shop was saved in cookie or localStorage, automatically redirect!
+      // If at root '/' and a shop was saved, auto-redirect
       if (window.location.pathname === '/' || window.location.pathname === '') {
         const saved = localStorage.getItem('stampup_active_slug');
         if (saved && saved !== 'chai-corner') {
@@ -900,7 +1052,7 @@
         }
       }
 
-      // If no slug found in URL or localStorage, fetch primary shop from database
+      // If no slug found, fetch primary shop from database
       if (!currentSlug) {
         try {
           const defRes = await fetch(`${supabaseUrl.replace(/\/+$/, '')}/rest/v1/rpc/get_default_shop`, {
@@ -923,9 +1075,9 @@
         } catch(e) {}
       }
 
-      if (!currentSlug) currentSlug = 'munna-bhai-coffee-shop-mpg4'; // fallback
+      if (!currentSlug) currentSlug = 'munna-bhai-coffee-shop-mpg4';
 
-      // Check URL search parameters (phone, cc)
+      // Check URL parameters (phone, cc)
       const urlParams = new URLSearchParams(window.location.search);
       let savedPhone = urlParams.get('phone');
       let savedCc = urlParams.get('cc');
@@ -941,7 +1093,6 @@
         phoneInput.value = savedPhone;
         const clearBtn = document.getElementById('phoneClearBtn');
         if (clearBtn) clearBtn.style.display = 'inline-flex';
-        // Check saved name
         const full = getFullPhone();
         const savedName = localStorage.getItem('stampup_name_' + full);
         if (savedName) {
@@ -970,7 +1121,6 @@
         if (res.ok) {
           const data = await res.json();
           if (data.status === 'shop_not_found') {
-            // Auto-recovery: query get_default_shop before failing!
             try {
               const defRes = await fetch(`${supabaseUrl.replace(/\/+$/, '')}/rest/v1/rpc/get_default_shop`, {
                 method: 'POST',
@@ -998,10 +1148,9 @@
             submitBtn.disabled = false;
           } else if (data.shop_name) {
             shopNameEl.textContent = data.shop_name;
-            rewardText.textContent = `At ${data.stamps_required} stamps: ${data.reward_text}`;
-            document.title = `${data.shop_name} - Loyalty Stamp Card`;
+            rewardText.textContent = `🎁 Free ${data.reward_text} at ${data.stamps_required} stamps`;
+            document.title = `${data.shop_name} - Loyalty Card`;
 
-            // Display shop number & location on Google Maps if configured
             if (data.shop_number || data.address || data.google_maps_url) {
               const metaCont = document.getElementById('shopMetaContainer');
               const numTag = document.getElementById('shopNumberTag');
@@ -1028,7 +1177,6 @@
             try { localStorage.setItem('stampup_active_slug', currentSlug); } catch(e){}
             updateDynamicManifest(data.shop_name, phoneInput.value.trim(), countrySelect.value);
 
-            // If phone was provided via Home Screen shortcut or saved storage, auto-load their card!
             if (savedPhone && savedPhone.length >= 6) {
               lookupCard();
             }
@@ -1039,7 +1187,7 @@
       }
     }
 
-    // Submit handler: Lookup customer stamps via get_card
+    // Lookup customer stamps via get_card
     async function lookupCard() {
       clearError();
 
@@ -1094,7 +1242,6 @@
         } else if (data.status === 'shop_not_found') {
           showError('Shop not found. Please verify the QR link.');
         } else if (data.status === 'ok') {
-          // Remember phone & name on customer's device for next visit
           try {
             localStorage.setItem('stampup_saved_phone_' + currentSlug, phoneInput.value.trim());
             localStorage.setItem('stampup_saved_cc_' + currentSlug, countrySelect.value);
@@ -1119,7 +1266,7 @@
 
     let pollInterval = null;
 
-    // Customer Requests a Stamp at Counter (from formCard or resultCard)
+    // Customer Requests a Stamp at Counter
     async function handleRequestStamp(source) {
       clearError();
 
@@ -1171,11 +1318,7 @@
         if (!res.ok) {
           let msg = 'Could not submit stamp request.';
           if (data && data.message) {
-            if (data.message.includes('schema cache') || data.message.includes('request_stamp')) {
-              msg = '⚡ Database setup needed: Please execute the SQL migration in your Supabase SQL Editor once.';
-            } else {
-              msg = data.message;
-            }
+            msg = data.message;
           }
           showError(msg);
           if (formBtn) {
@@ -1190,7 +1333,7 @@
             try { localStorage.setItem('stampup_name_' + fullPhone, finalName); } catch (e) {}
           }
 
-          const statusHtml = '⏳ <strong>Stamp Requested!</strong> Tell the cashier to approve your stamp.';
+          const statusHtml = '⏳ <strong>Stamp Requested!</strong> Cashier has your request on their screen.';
           if (formBox) {
             formBox.innerHTML = statusHtml;
             formBox.style.display = 'block';
@@ -1202,11 +1345,9 @@
           if (formBtn) formBtn.style.display = 'none';
           if (requestStampBtn) requestStampBtn.style.display = 'none';
 
-          // Start polling every 2.5 seconds to auto-update when cashier accepts
           if (pollInterval) clearInterval(pollInterval);
           let prevStamps = parseInt(stampCountText.textContent) || 0;
 
-          // Fetch initial card state immediately
           const initialCardRes = await fetch(`${supabaseUrl.replace(/\/+$/, '')}/rest/v1/rpc/get_card`, {
             method: 'POST',
             headers: {
@@ -1242,7 +1383,7 @@
               if (cardData.status === 'ok') {
                 if (cardData.current_stamps > prevStamps || (prevStamps >= (cardData.stamps_required || 8) && cardData.current_stamps === 0)) {
                   clearInterval(pollInterval);
-                  displayResult(cardData, true); // trigger congrats
+                  displayResult(cardData, true);
                   requestStatusBox.innerHTML = '🎉 <strong>Stamp Approved!</strong> +1 stamp added!';
                   requestStatusBox.style.display = 'block';
                   launchConfetti();
@@ -1283,7 +1424,6 @@
       const total = data.stamps_required || 8;
       const fullPhone = getFullPhone();
 
-      // Update URL with customer phone for bookmarking / Home Screen icon
       try {
         const cleanPhone = phoneInput.value.trim();
         const currentCc = countrySelect.value;
@@ -1297,19 +1437,30 @@
       if (name) {
         try { localStorage.setItem('stampup_name_' + fullPhone, name); } catch(e){}
         if (greetingName) greetingName.textContent = name;
-        if (customerGreeting) customerGreeting.style.display = 'block';
       } else {
-        if (customerGreeting) customerGreeting.style.display = 'none';
+        if (greetingName) greetingName.textContent = 'Loyalty Member';
       }
 
       stampCountText.textContent = `${cur} of ${total} stamps`;
-      rewardText.textContent = `At ${total} stamps: ${data.reward_text}`;
+      rewardText.textContent = `🎁 Free ${data.reward_text} at ${total} stamps`;
+
+      // Progress bar & percentage badge
+      const percent = Math.min(100, Math.round((cur / Math.max(1, total)) * 100));
+      if (stampFractionBadge) stampFractionBadge.textContent = `${percent}%`;
+      if (progressFill) {
+        progressFill.style.width = `${percent}%`;
+        if (cur >= total) {
+          progressFill.classList.add('full');
+        } else {
+          progressFill.classList.remove('full');
+        }
+      }
 
       // Reset request status
       requestStatusBox.style.display = 'none';
       requestStampBtn.style.display = 'block';
 
-      // Build Circles
+      // Build Squircle Circles
       circlesGrid.innerHTML = '';
       for (let i = 1; i <= total; i++) {
         const circle = document.createElement('div');
@@ -1318,7 +1469,7 @@
         circlesGrid.appendChild(circle);
       }
 
-      // Check for New Stamp Celebration (Persists until user taps Got It!)
+      // Check for New Stamp Celebration
       const lastSeenStr = localStorage.getItem('stampup_seen_stamps_' + fullPhone);
       const lastSeen = lastSeenStr !== null ? parseInt(lastSeenStr, 10) : null;
 
@@ -1360,7 +1511,7 @@
       phoneInput.focus();
     }
 
-    // Confetti Animation for full card celebration
+    // Confetti Animation for celebrations
     function launchConfetti() {
       const canvas = document.getElementById('confettiCanvas');
       if (!canvas) return;
@@ -1421,7 +1572,7 @@
       e.preventDefault();
       deferredPrompt = e;
       const btn = document.getElementById('installBtn');
-      if (btn) btn.style.display = 'block';
+      if (btn) btn.style.display = 'flex';
     });
 
     function handleInstallClick() {
@@ -1440,7 +1591,6 @@
       }
     }
 
-    // Allow pressing "Enter" key
     phoneInput.addEventListener('keypress', (e) => {
       if (e.key === 'Enter') lookupCard();
     });
