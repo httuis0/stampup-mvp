@@ -114,7 +114,6 @@ export const ShopSetupScreen: React.FC<ShopSetupScreenProps> = ({
         .single();
 
       if (error) {
-        // If optional columns are not yet added to DB table, retry with base fields
         if (error.message && (error.message.includes('column') || error.message.includes('schema'))) {
           const fallbackPayload = {
             owner_id: ownerId,
@@ -153,12 +152,15 @@ export const ShopSetupScreen: React.FC<ShopSetupScreenProps> = ({
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={styles.container}
     >
-      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.title}>🏪 Setup Your Shop</Text>
+          <View style={styles.headerPill}>
+            <Text style={styles.headerPillText}>🏪 Shop Setup</Text>
+          </View>
+          <Text style={styles.title}>Setup Your Shop POS</Text>
           <Text style={styles.subtitle}>
-            Enter your business details, pinpoint your store on Google Maps, and set customer rewards.
+            Enter your store details, pinpoint your location on Google Maps, and create your loyalty rules.
           </Text>
         </View>
 
@@ -166,19 +168,22 @@ export const ShopSetupScreen: React.FC<ShopSetupScreenProps> = ({
         <View style={styles.card}>
           {errorMessage && (
             <View style={styles.errorBox}>
-              <Text style={styles.errorText}>{errorMessage}</Text>
+              <Text style={styles.errorText}>⚠️ {errorMessage}</Text>
             </View>
           )}
 
           {/* Section 1: Shop Identity */}
-          <Text style={styles.sectionHeader}>🏢 Store Identity</Text>
+          <View style={styles.sectionTitleRow}>
+            <Text style={styles.sectionNumber}>1</Text>
+            <Text style={styles.sectionHeader}>Store Identity</Text>
+          </View>
 
           {/* Shop Name */}
           <Text style={styles.label}>Shop Name *</Text>
           <TextInput
             style={styles.input}
             placeholder="e.g. Chai Corner Downtown"
-            placeholderTextColor="#9CA3AF"
+            placeholderTextColor="#94A3B8"
             value={shopName}
             onChangeText={setShopName}
             editable={!loading}
@@ -189,7 +194,7 @@ export const ShopSetupScreen: React.FC<ShopSetupScreenProps> = ({
           <TextInput
             style={styles.input}
             placeholder="e.g. Shop #14, Ground Floor, Unit G-02"
-            placeholderTextColor="#9CA3AF"
+            placeholderTextColor="#94A3B8"
             value={shopNumber}
             onChangeText={setShopNumber}
             editable={!loading}
@@ -201,6 +206,7 @@ export const ShopSetupScreen: React.FC<ShopSetupScreenProps> = ({
             <TouchableOpacity
               style={styles.countryBtn}
               onPress={() => setCountryModalVisible(true)}
+              activeOpacity={0.7}
             >
               <Text style={styles.countryFlag}>{selectedCountry.flag}</Text>
               <Text style={styles.countryDialCode}>{selectedCountry.dialCode}</Text>
@@ -210,7 +216,7 @@ export const ShopSetupScreen: React.FC<ShopSetupScreenProps> = ({
             <TextInput
               style={styles.phoneInput}
               placeholder={`e.g. ${selectedCountry.format}`}
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor="#94A3B8"
               keyboardType="phone-pad"
               value={shopPhone}
               onChangeText={setShopPhone}
@@ -220,7 +226,10 @@ export const ShopSetupScreen: React.FC<ShopSetupScreenProps> = ({
 
           {/* Section 2: Real Google Map Location */}
           <View style={styles.divider} />
-          <Text style={styles.sectionHeader}>📍 Location (Real Google Map)</Text>
+          <View style={styles.sectionTitleRow}>
+            <Text style={styles.sectionNumber}>2</Text>
+            <Text style={styles.sectionHeader}>Location (Real Google Map)</Text>
+          </View>
           <Text style={styles.helperSubtext}>
             Search your store address or use GPS to place the exact pin on Google Maps.
           </Text>
@@ -234,7 +243,10 @@ export const ShopSetupScreen: React.FC<ShopSetupScreenProps> = ({
 
           {/* Section 3: Loyalty Program Rules */}
           <View style={styles.divider} />
-          <Text style={styles.sectionHeader}>🎁 Loyalty & Stamp Rules</Text>
+          <View style={styles.sectionTitleRow}>
+            <Text style={styles.sectionNumber}>3</Text>
+            <Text style={styles.sectionHeader}>Loyalty & Stamp Rules</Text>
+          </View>
 
           {/* Stamps Required Stepper */}
           <Text style={styles.label}>Stamps Required for Reward</Text>
@@ -274,7 +286,7 @@ export const ShopSetupScreen: React.FC<ShopSetupScreenProps> = ({
           <TextInput
             style={styles.input}
             placeholder="e.g. Free specialty coffee or pastry"
-            placeholderTextColor="#9CA3AF"
+            placeholderTextColor="#94A3B8"
             value={rewardText}
             onChangeText={setRewardText}
             editable={!loading}
@@ -285,6 +297,7 @@ export const ShopSetupScreen: React.FC<ShopSetupScreenProps> = ({
             style={[styles.primaryButton, loading && styles.buttonDisabled]}
             onPress={handleSaveShop}
             disabled={loading}
+            activeOpacity={0.8}
           >
             {loading ? (
               <ActivityIndicator color="#FFFFFF" size="small" />
@@ -309,26 +322,44 @@ export const ShopSetupScreen: React.FC<ShopSetupScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#F8FAFC',
   },
   scrollContent: {
     padding: 20,
     paddingBottom: 40,
+    maxWidth: 500,
+    width: '100%',
+    alignSelf: 'center',
   },
   header: {
     alignItems: 'center',
     marginBottom: 20,
-    marginTop: 10,
+    marginTop: 8,
+  },
+  headerPill: {
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#DBEAFE',
+    marginBottom: 10,
+  },
+  headerPillText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#2563EB',
   },
   title: {
     fontSize: 26,
     fontWeight: '800',
-    color: '#1E3A8A',
+    color: '#0F172A',
     textAlign: 'center',
+    letterSpacing: -0.5,
   },
   subtitle: {
     fontSize: 14,
-    color: '#4B5563',
+    color: '#64748B',
     marginTop: 6,
     textAlign: 'center',
     lineHeight: 20,
@@ -336,23 +367,41 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
+    borderRadius: 22,
     padding: 20,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.05,
     shadowRadius: 10,
     elevation: 3,
+  },
+  sectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 10,
+  },
+  sectionNumber: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#0F172A',
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '800',
+    textAlign: 'center',
+    lineHeight: 24,
   },
   sectionHeader: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#1E3A8A',
-    marginBottom: 8,
+    color: '#0F172A',
   },
   divider: {
     height: 1,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: '#F1F5F9',
     marginVertical: 18,
   },
   helperSubtext: {
@@ -360,35 +409,41 @@ const styles = StyleSheet.create({
     color: '#64748B',
     marginBottom: 10,
   },
+  helperText: {
+    fontSize: 12,
+    color: '#64748B',
+    marginBottom: 8,
+  },
   errorBox: {
-    backgroundColor: '#FEE2E2',
-    borderColor: '#EF4444',
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FCA5A5',
     borderWidth: 1,
-    borderRadius: 10,
+    borderRadius: 12,
     padding: 12,
     marginBottom: 16,
   },
   errorText: {
     color: '#991B1B',
-    fontSize: 14,
-    fontWeight: '500',
+    fontSize: 13,
+    fontWeight: '600',
   },
   label: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
-    color: '#374151',
+    color: '#334155',
     marginBottom: 6,
-    marginTop: 10,
+    marginTop: 8,
   },
   input: {
-    backgroundColor: '#F9FAFB',
-    borderColor: '#D1D5DB',
-    borderWidth: 1,
+    backgroundColor: '#FFFFFF',
+    borderColor: '#CBD5E1',
+    borderWidth: 1.5,
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 15,
-    color: '#111827',
+    color: '#0F172A',
+    marginBottom: 10,
   },
   phoneRow: {
     flexDirection: 'row',
@@ -398,100 +453,96 @@ const styles = StyleSheet.create({
   countryBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F9FAFB',
-    borderColor: '#D1D5DB',
-    borderWidth: 1,
+    backgroundColor: '#F8FAFC',
+    borderColor: '#CBD5E1',
+    borderWidth: 1.5,
     borderRadius: 12,
-    paddingHorizontal: 10,
-    height: 48,
-    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    gap: 6,
   },
   countryFlag: {
-    fontSize: 18,
+    fontSize: 20,
   },
   countryDialCode: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#1E293B',
+    color: '#0F172A',
   },
   dropdownArrow: {
-    fontSize: 10,
+    fontSize: 12,
     color: '#64748B',
   },
   phoneInput: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
-    borderColor: '#D1D5DB',
-    borderWidth: 1,
+    backgroundColor: '#FFFFFF',
+    borderColor: '#CBD5E1',
+    borderWidth: 1.5,
     borderRadius: 12,
     paddingHorizontal: 14,
-    height: 48,
+    paddingVertical: 12,
     fontSize: 15,
-    color: '#111827',
-  },
-  helperText: {
-    fontSize: 12,
-    color: '#6B7280',
-    marginBottom: 8,
+    color: '#0F172A',
   },
   stepperContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginVertical: 8,
+    justifyContent: 'space-between',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    borderRadius: 14,
+    padding: 6,
+    marginBottom: 12,
   },
   stepperButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#EFF6FF',
-    borderColor: '#BFDBFE',
-    borderWidth: 1.5,
-    justifyContent: 'center',
+    width: 44,
+    height: 44,
+    backgroundColor: '#0F172A',
+    borderRadius: 10,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   stepperButtonDisabled: {
-    backgroundColor: '#F3F4F6',
-    borderColor: '#E5E7EB',
+    backgroundColor: '#E2E8F0',
   },
   stepperButtonText: {
-    fontSize: 24,
+    fontSize: 22,
+    color: '#FFFFFF',
     fontWeight: '700',
-    color: '#2563EB',
-    lineHeight: 28,
   },
   stepperValueContainer: {
     alignItems: 'center',
-    paddingHorizontal: 28,
   },
   stepperValue: {
-    fontSize: 32,
+    fontSize: 24,
     fontWeight: '800',
-    color: '#1E3A8A',
+    color: '#0F172A',
   },
   stepperValueLabel: {
-    fontSize: 12,
-    color: '#6B7280',
-    fontWeight: '500',
+    fontSize: 11,
+    color: '#64748B',
+    fontWeight: '600',
   },
   primaryButton: {
-    backgroundColor: '#2563EB',
+    backgroundColor: '#0F172A',
     borderRadius: 14,
-    paddingVertical: 16,
+    paddingVertical: 15,
     alignItems: 'center',
-    marginTop: 24,
-    shadowColor: '#2563EB',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  buttonDisabled: {
-    opacity: 0.6,
+    marginTop: 14,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 3,
   },
   primaryButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '800',
+    letterSpacing: -0.2,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
   },
 });

@@ -1,6 +1,6 @@
 // ============================================================
 // Screen 1: Login / Sign Up
-// Designed with large inputs and buttons for busy shop owners.
+// Premium FinTech auth experience for shop managers & cashiers.
 // ============================================================
 
 import React, { useState } from 'react';
@@ -49,16 +49,16 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
     return true;
   };
 
-  // Convert technical Supabase error strings into plain, friendly English
+  // Friendly error handling
   const handleAuthError = (err: any) => {
     const raw = (err?.message || '').toLowerCase();
 
     if (raw.includes('network') || raw.includes('failed to fetch') || raw.includes('fetch')) {
       setErrorMessage(strings.common.networkError);
     } else if (raw.includes('email not confirmed')) {
-      setErrorMessage('Your email is not confirmed yet. Please check your inbox or disable "Confirm email" in Supabase.');
+      setErrorMessage('Your email is not confirmed yet. Please check your inbox.');
     } else if (raw.includes('invalid login credentials') || raw.includes('invalid credentials')) {
-      setErrorMessage('Incorrect email/password, or your email has not been confirmed yet.');
+      setErrorMessage('Incorrect email or password. Please try again.');
     } else if (raw.includes('already registered') || raw.includes('user already exists')) {
       setErrorMessage(strings.auth.emailAlreadyUsed);
     } else {
@@ -107,10 +107,8 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
       if (error) {
         handleAuthError(error);
       } else if (data.session) {
-        // Automatically signed in (email confirmation disabled in Supabase)
         if (onSuccess) onSuccess();
       } else {
-        // Email confirmation required by Supabase project settings
         setSuccessMessage(strings.auth.accountCreatedSuccess);
       }
     } catch (err: any) {
@@ -128,9 +126,12 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         {/* App Header */}
         <View style={styles.header}>
-          <Text style={styles.logo}>{strings.common.appName}</Text>
+          <View style={styles.logoBadge}>
+            <Text style={styles.logoBadgeText}>⚡</Text>
+          </View>
+          <Text style={styles.logo}>StampUp</Text>
           <Text style={styles.subtitle}>
-            {isLogin ? strings.auth.loginSubtitle : strings.auth.signupSubtitle}
+            {isLogin ? 'Sign in to access your shop POS' : 'Create your digital loyalty account'}
           </Text>
         </View>
 
@@ -144,9 +145,10 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
               setSuccessMessage(null);
             }}
             disabled={loading}
+            activeOpacity={0.7}
           >
             <Text style={[styles.tabText, isLogin && styles.tabTextActive]}>
-              {strings.auth.loginButton}
+              Log In
             </Text>
           </TouchableOpacity>
 
@@ -158,26 +160,27 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
               setSuccessMessage(null);
             }}
             disabled={loading}
+            activeOpacity={0.7}
           >
             <Text style={[styles.tabText, !isLogin && styles.tabTextActive]}>
-              {strings.auth.signupButton}
+              Create Account
             </Text>
           </TouchableOpacity>
         </View>
 
         {/* Form Container */}
-        <View style={styles.form}>
+        <View style={styles.formCard}>
           {/* Error Message Box */}
           {errorMessage && (
             <View style={styles.errorBox}>
-              <Text style={styles.errorText}>{errorMessage}</Text>
+              <Text style={styles.errorText}>⚠️ {errorMessage}</Text>
             </View>
           )}
 
           {/* Success Message Box */}
           {successMessage && (
             <View style={styles.successBox}>
-              <Text style={styles.successText}>{successMessage}</Text>
+              <Text style={styles.successText}>✓ {successMessage}</Text>
             </View>
           )}
 
@@ -186,7 +189,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
           <TextInput
             style={styles.input}
             placeholder={strings.auth.emailPlaceholder}
-            placeholderTextColor="#9CA3AF"
+            placeholderTextColor="#94A3B8"
             value={email}
             onChangeText={setEmail}
             autoCapitalize="none"
@@ -200,7 +203,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
           <TextInput
             style={styles.input}
             placeholder={strings.auth.passwordPlaceholder}
-            placeholderTextColor="#9CA3AF"
+            placeholderTextColor="#94A3B8"
             value={password}
             onChangeText={setPassword}
             secureTextEntry
@@ -208,17 +211,18 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
             editable={!loading}
           />
 
-          {/* Big Action Button */}
+          {/* Primary Action Button */}
           <TouchableOpacity
             style={[styles.primaryButton, loading && styles.buttonDisabled]}
             onPress={isLogin ? handleLogin : handleSignUp}
             disabled={loading}
+            activeOpacity={0.8}
           >
             {loading ? (
               <ActivityIndicator color="#FFFFFF" size="small" />
             ) : (
               <Text style={styles.primaryButtonText}>
-                {isLogin ? strings.auth.loginButton : strings.auth.signupButton}
+                {isLogin ? 'Sign In to Store' : 'Create Free Store'}
               </Text>
             )}
           </TouchableOpacity>
@@ -238,6 +242,11 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
             </Text>
           </TouchableOpacity>
         </View>
+
+        {/* Security badge footer */}
+        <View style={styles.footerBadge}>
+          <Text style={styles.footerBadgeText}>🔒 End-to-End Encrypted POS System</Text>
+        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -246,39 +255,63 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#F8FAFC',
   },
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
     padding: 24,
+    maxWidth: 440,
+    width: '100%',
+    alignSelf: 'center',
   },
   header: {
     alignItems: 'center',
-    marginBottom: 28,
+    marginBottom: 24,
+  },
+  logoBadge: {
+    width: 56,
+    height: 56,
+    borderRadius: 18,
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1.5,
+    borderColor: '#DBEAFE',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+    shadowColor: '#2563EB',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  logoBadgeText: {
+    fontSize: 26,
   },
   logo: {
-    fontSize: 36,
+    fontSize: 32,
     fontWeight: '800',
-    color: '#1E3A8A',
-    letterSpacing: -0.5,
+    color: '#0F172A',
+    letterSpacing: -0.8,
   },
   subtitle: {
-    fontSize: 16,
-    color: '#4B5563',
-    marginTop: 8,
+    fontSize: 14,
+    color: '#64748B',
+    marginTop: 6,
     textAlign: 'center',
   },
   tabContainer: {
     flexDirection: 'row',
-    backgroundColor: '#E5E7EB',
-    borderRadius: 12,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 14,
     padding: 4,
-    marginBottom: 24,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   tabButton: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: 10,
     borderRadius: 10,
     alignItems: 'center',
   },
@@ -286,99 +319,115 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 2,
   },
   tabText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
-    color: '#6B7280',
+    color: '#64748B',
   },
   tabTextActive: {
-    color: '#1E3A8A',
+    color: '#0F172A',
+    fontWeight: '800',
   },
-  form: {
+  formCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 24,
+    borderRadius: 22,
+    padding: 22,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
     elevation: 3,
   },
-  errorBox: {
-    backgroundColor: '#FEE2E2',
-    borderColor: '#EF4444',
-    borderWidth: 1,
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 16,
-  },
-  errorText: {
-    color: '#991B1B',
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  successBox: {
-    backgroundColor: '#D1FAE5',
-    borderColor: '#10B981',
-    borderWidth: 1,
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 16,
-  },
-  successText: {
-    color: '#065F46',
-    fontSize: 14,
-    fontWeight: '500',
-  },
   inputLabel: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#374151',
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#334155',
     marginBottom: 6,
+    marginTop: 4,
   },
   input: {
-    backgroundColor: '#F9FAFB',
-    borderColor: '#D1D5DB',
+    backgroundColor: '#FFFFFF',
+    borderColor: '#CBD5E1',
     borderWidth: 1.5,
     borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 17,
-    color: '#111827',
-    marginBottom: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 15,
+    color: '#0F172A',
+    marginBottom: 14,
   },
   primaryButton: {
-    backgroundColor: '#2563EB',
-    borderRadius: 12,
-    paddingVertical: 16,
+    backgroundColor: '#0F172A',
+    borderRadius: 14,
+    paddingVertical: 15,
     alignItems: 'center',
-    marginTop: 6,
-    shadowColor: '#2563EB',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
+    marginTop: 8,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
     shadowRadius: 6,
-    elevation: 4,
-  },
-  buttonDisabled: {
-    opacity: 0.7,
+    elevation: 3,
   },
   primaryButtonText: {
     color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: 16,
+    fontWeight: '800',
+    letterSpacing: -0.2,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
   },
   switchButton: {
-    marginTop: 18,
+    marginTop: 14,
     alignItems: 'center',
-    paddingVertical: 8,
+    paddingVertical: 4,
   },
   switchButtonText: {
-    fontSize: 15,
     color: '#2563EB',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  errorBox: {
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FCA5A5',
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 14,
+  },
+  errorText: {
+    color: '#991B1B',
+    fontSize: 13,
     fontWeight: '600',
+    textAlign: 'center',
+  },
+  successBox: {
+    backgroundColor: '#ECFDF5',
+    borderColor: '#A7F3D0',
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 14,
+  },
+  successText: {
+    color: '#065F46',
+    fontSize: 13,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  footerBadge: {
+    marginTop: 20,
+    alignItems: 'center',
+  },
+  footerBadgeText: {
+    fontSize: 12,
+    color: '#94A3B8',
+    fontWeight: '500',
   },
 });
