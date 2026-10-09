@@ -9,10 +9,12 @@
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.stampup.shop"
+      "bundleIdentifier": "com.stampup.shop",
+      "buildNumber": "1"
     },
     "android": {
       "package": "com.stampup.shop",
+      "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#173A8A",
         "foregroundImage": "./assets/android-icon-foreground.png"

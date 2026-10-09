@@ -111,6 +111,34 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   const [newPinInput, setNewPinInput] = useState<string>('');
   const [confirmPinInput, setConfirmPinInput] = useState<string>('');
 
+  // Delete Account Handler
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      "Delete Account",
+      "Are you sure you want to permanently delete your account and all associated data? This action cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        { 
+          text: "Delete", 
+          style: "destructive",
+          onPress: async () => {
+            setLoading(true);
+            try {
+              const { error } = await supabase.rpc('delete_user_account');
+              if (error) throw error;
+              await supabase.auth.signOut();
+              onLogout();
+            } catch (error: any) {
+              Alert.alert("Error", error.message || "Could not delete account.");
+            } finally {
+              setLoading(false);
+            }
+          }
+        }
+      ]
+    );
+  };
+
   // Sync state if active shop changes
   useEffect(() => {
     setShopName(shop.name);
@@ -794,6 +822,12 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
             <TouchableOpacity style={styles.logoutButton} onPress={onLogout} activeOpacity={0.7}>
               <Text style={styles.logoutButtonText}>{strings.settings.logout}</Text>
+            </TouchableOpacity>
+
+            <View style={[styles.divider, { marginTop: 24 }]} />
+
+            <TouchableOpacity style={[styles.logoutButton, { backgroundColor: '#FEE2E2', borderColor: '#FCA5A5', borderWidth: 1 }]} onPress={handleDeleteAccount} activeOpacity={0.7}>
+              <Text style={[styles.logoutButtonText, { color: '#DC2626' }]}>🗑️ Delete Account</Text>
             </TouchableOpacity>
           </View>
         )}
