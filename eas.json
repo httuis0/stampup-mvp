@@ -22,8 +22,14 @@
     },
     "production": {
       "autoIncrement": true,
+      "channel": "production",
       "android": {
         "buildType": "app-bundle"
+      },
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://leoleteiwpirmdtfoufa.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxlb2xldGVpd3Bpcm1kdGZvdWZhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA5MzE0MjQsImV4cCI6MjEwNjUwNzQyNH0.ijyVogbCxLllDgf_4EgoYyMFZ9QqCayiUi3OxuEWrhk",
+        "EXPO_PUBLIC_CUSTOMER_WEB_URL": "https://stampup-cards.vercel.app"
       }
     }
   },
