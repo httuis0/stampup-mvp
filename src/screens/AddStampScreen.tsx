@@ -264,31 +264,7 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({ shop }) => {
     setLoading(true);
 
     try {
-      // 1. Strict Active Customer Check: Only active/registered customers can receive stamps!
-      const { data: existingCust, error: checkError } = await supabase
-        .from('customers')
-        .select('id, current_stamps, last_stamp_at')
-        .eq('shop_id', shop.id)
-        .eq('phone', normalizedPhone)
-        .maybeSingle();
-
-      if (checkError) {
-        setErrorMessage('Could not verify customer record. Please try again.');
-        playWarningFeedback();
-        setLoading(false);
-        return;
-      }
-
-      if (!existingCust) {
-        setErrorMessage(
-          '⚠️ Customer not found. Only active customers who joined via QR code or requested a stamp can receive stamps.'
-        );
-        playWarningFeedback();
-        setLoading(false);
-        return;
-      }
-
-      // 2. Customer exists and is active -> Execute stamp
+      // 1. Execute stamp directly (backend will create customer if they don't exist)
       const { data, error } = await supabase.rpc('add_stamp', {
         p_shop_id: shop.id,
         p_phone: normalizedPhone,
@@ -674,7 +650,8 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({ shop }) => {
               style={styles.whatsAppSuccessBtn}
               onPress={() => {
                 const targetSlug = shop.slug || shop.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-                const cardUrl = `${customerWebBase.replace(/\/+$/, '')}/c/${targetSlug}?phone=${encodeURIComponent(successInfo.phone.replace(/[^0-9]/g, ''))}`;
+                // The web app expects the full phone number, including the + sign (e.g., +97150...)
+                const cardUrl = `${customerWebBase.replace(/\/+$/, '')}/c/${targetSlug}?phone=${encodeURIComponent(successInfo.phone)}`;
                 const text = `Hi! You just received a stamp at *${shop.name}* 🎉\n\nYou now have *${successInfo.currentStamps} of ${successInfo.stampsRequired}* stamps!\nCollect ${Math.max(0, successInfo.stampsRequired - successInfo.currentStamps)} more to unlock: *${shop.reward_text}*.\n\nView your digital card anytime here:\n${cardUrl}`;
                 sendWhatsApp(successInfo.phone, text);
               }}
@@ -716,7 +693,8 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({ shop }) => {
               style={styles.whatsAppRewardBtn}
               onPress={() => {
                 const targetSlug = shop.slug || shop.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-                const cardUrl = `${customerWebBase.replace(/\/+$/, '')}/c/${targetSlug}?phone=${encodeURIComponent(cardFullInfo.phone.replace(/[^0-9]/g, ''))}`;
+                // The web app expects the full phone number, including the + sign (e.g., +97150...)
+                const cardUrl = `${customerWebBase.replace(/\/+$/, '')}/c/${targetSlug}?phone=${encodeURIComponent(cardFullInfo.phone)}`;
                 const text = `Congratulations! 🏆\nYour loyalty card at *${shop.name}* is FULL!\n\nYou've earned your reward: *${shop.reward_text}* 🎁\nVisit us anytime to claim it!\n\nView card: ${cardUrl}`;
                 sendWhatsApp(cardFullInfo.phone, text);
               }}
