@@ -23,6 +23,7 @@ import {
   Linking,
 } from 'react-native';
 import { supabase } from '../lib/supabase';
+import * as Clipboard from 'expo-clipboard';
 import { strings } from '../constants/strings';
 import { formatPhoneDisplay } from '../utils/phone';
 import {
@@ -106,6 +107,13 @@ export const CustomersScreen: React.FC<CustomersScreenProps> = ({ shop }) => {
   const [noteInput, setNoteInput] = useState<string>('');
   const [savingNote, setSavingNote] = useState<boolean>(false);
   const [noteSavedBadge, setNoteSavedBadge] = useState<boolean>(false);
+
+  // WhatsApp Campaigns Modal State
+  const [campaignModalVisible, setCampaignModalVisible] = useState<boolean>(false);
+  const [selectedCampaignType, setSelectedCampaignType] = useState<
+    'finish_card' | 'full_card' | 'weekend_double' | 'we_miss_you'
+  >('finish_card');
+  const [copiedCampaignText, setCopiedCampaignText] = useState<boolean>(false);
 
   // Load Customer Notes
   const loadNotes = useCallback(async () => {
@@ -238,6 +246,77 @@ export const CustomersScreen: React.FC<CustomersScreenProps> = ({ shop }) => {
   const totalStampsCurrent = customers.reduce((sum, c) => sum + (c.current_stamps || 0), 0);
   const totalRewardsGiven = customers.reduce((sum, c) => sum + (c.rewards_given || 0), 0);
   const readyCount = customers.filter((c) => (c.current_stamps || 0) >= shop.stamps_required).length;
+
+  // WhatsApp Campaign Audience Counts
+  const finishCardCount = useMemo(() => {
+    return customers.filter(
+      (c) =>
+        (c.current_stamps || 0) < shop.stamps_required &&
+        (c.current_stamps || 0) >= Math.max(1, shop.stamps_required - 3)
+    ).length;
+  }, [customers, shop.stamps_required]);
+
+  const fullCardCount = useMemo(() => {
+    return customers.filter((c) => (c.current_stamps || 0) >= shop.stamps_required).length;
+  }, [customers, shop.stamps_required]);
+
+  const missYouCount = useMemo(() => {
+    const fourteenDaysAgo = Date.now() - 14 * 24 * 60 * 60 * 1000;
+    return customers.filter((c) => {
+      if (!c.last_stamp_at) return true;
+      return new Date(c.last_stamp_at).getTime() < fourteenDaysAgo;
+    }).length;
+  }, [customers]);
+
+  // Campaign Message Template Formatter
+  const getCampaignMessage = useCallback(
+    (type: string, cust?: Customer | null) => {
+      const namePart = cust?.name ? `Hey ${cust.name}! ` : 'Hey! ';
+      const remaining = cust
+        ? Math.max(1, shop.stamps_required - (cust.current_stamps || 0))
+        : 1;
+      const cardUrl = cust
+        ? `${customerWebBase}/c/${shop.slug}?phone=${encodeURIComponent(cust.phone)}`
+        : `${customerWebBase}/c/${shop.slug}`;
+
+      switch (type) {
+        case 'finish_card':
+          return `${namePart}👋 You are only ${remaining} stamp${remaining > 1 ? 's' : ''} away from unlocking your FREE ${shop.reward_text} at *${shop.name}*! 🎉\n\nVisit us soon to complete your loyalty card:\n${cardUrl}`;
+        case 'full_card':
+          return `Congratulations ${namePart}🏆 Your digital loyalty card at *${shop.name}* is FULL!\n\nYour reward (*${shop.reward_text}*) is waiting for you! Drop in anytime to claim it 🎁\n\nView card:\n${cardUrl}`;
+        case 'weekend_double':
+          return `⚡ Weekend Special at *${shop.name}*!\n\nVisit us this Friday & Saturday to earn DOUBLE stamps on every visit! 🎉${cust ? `\n\nYou currently have ${cust.current_stamps} stamps.` : ''}\n\nCheck your card:\n${cardUrl}`;
+        case 'we_miss_you':
+          return `We miss you at *${shop.name}*! ❤️\n\nIt's been a while since your last visit. Your loyalty card still has ${cust?.current_stamps || 0} stamps waiting for you!\n\nDrop in today for your favorite treat:\n${cardUrl}`;
+        default:
+          return '';
+      }
+    },
+    [shop]
+  );
+
+  // Filter targeted customers for the selected campaign
+  const campaignMatchingCustomers = useMemo(() => {
+    if (selectedCampaignType === 'finish_card') {
+      return customers.filter(
+        (c) =>
+          (c.current_stamps || 0) < shop.stamps_required &&
+          (c.current_stamps || 0) >= Math.max(1, shop.stamps_required - 3)
+      );
+    }
+    if (selectedCampaignType === 'full_card') {
+      return customers.filter((c) => (c.current_stamps || 0) >= shop.stamps_required);
+    }
+    if (selectedCampaignType === 'we_miss_you') {
+      const fourteenDaysAgo = Date.now() - 14 * 24 * 60 * 60 * 1000;
+      return customers.filter((c) => {
+        if (!c.last_stamp_at) return true;
+        return new Date(c.last_stamp_at).getTime() < fourteenDaysAgo;
+      });
+    }
+    // weekend_double -> all active customers
+    return customers;
+  }, [customers, selectedCampaignType, shop.stamps_required]);
 
   // Filter customers by search query and filter status
   const filteredCustomers = useMemo(() => {
@@ -593,9 +672,18 @@ export const CustomersScreen: React.FC<CustomersScreenProps> = ({ shop }) => {
           <Text style={styles.screenTitle}>Customers</Text>
           <Text style={styles.screenSubtitle}>Directory & activity</Text>
         </View>
-        <TouchableOpacity style={styles.exportBtn} onPress={handleExportCSV} activeOpacity={0.7}>
-          <Text style={styles.exportBtnText}>📥 Export CSV</Text>
-        </TouchableOpacity>
+        <View style={styles.headerActionsRow}>
+          <TouchableOpacity
+            style={styles.campaignHeaderBtn}
+            onPress={() => setCampaignModalVisible(true)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.campaignHeaderBtnText}>📢 Campaigns</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.exportBtn} onPress={handleExportCSV} activeOpacity={0.7}>
+            <Text style={styles.exportBtnText}>📥 CSV</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* FinTech KPI Metric Cards */}
@@ -1237,6 +1325,205 @@ export const CustomersScreen: React.FC<CustomersScreenProps> = ({ shop }) => {
             <TouchableOpacity
               style={styles.activityDoneBtn}
               onPress={() => setDateModalVisible(false)}
+            >
+              <Text style={styles.activityDoneBtnText}>Done</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* -------------------------------------------------------- */}
+      {/* WHATSAPP RE-ENGAGEMENT CAMPAIGNS MODAL */}
+      {/* -------------------------------------------------------- */}
+      <Modal
+        visible={campaignModalVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setCampaignModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.campaignModalCard}>
+            <View style={styles.campaignModalHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.campaignModalTitle}>📢 WhatsApp Campaigns</Text>
+                <Text style={styles.campaignModalSub}>
+                  Re-engage regulars & boost visits with 1-click WhatsApp messages
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={styles.modalCloseIconBtn}
+                onPress={() => setCampaignModalVisible(false)}
+              >
+                <Text style={styles.modalCloseIconText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Campaign Selection Tabs */}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.campaignTabsScroll}
+              contentContainerStyle={styles.campaignTabsContent}
+            >
+              <TouchableOpacity
+                style={[
+                  styles.campaignTabPill,
+                  selectedCampaignType === 'finish_card' && styles.campaignTabPillActive,
+                ]}
+                onPress={() => setSelectedCampaignType('finish_card')}
+                activeOpacity={0.7}
+              >
+                <Text
+                  style={[
+                    styles.campaignTabPillText,
+                    selectedCampaignType === 'finish_card' && styles.campaignTabPillTextActive,
+                  ]}
+                >
+                  🎯 Almost Full ({finishCardCount})
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.campaignTabPill,
+                  selectedCampaignType === 'full_card' && styles.campaignTabPillActive,
+                ]}
+                onPress={() => setSelectedCampaignType('full_card')}
+                activeOpacity={0.7}
+              >
+                <Text
+                  style={[
+                    styles.campaignTabPillText,
+                    selectedCampaignType === 'full_card' && styles.campaignTabPillTextActive,
+                  ]}
+                >
+                  🏆 Reward Ready ({fullCardCount})
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.campaignTabPill,
+                  selectedCampaignType === 'weekend_double' && styles.campaignTabPillActive,
+                ]}
+                onPress={() => setSelectedCampaignType('weekend_double')}
+                activeOpacity={0.7}
+              >
+                <Text
+                  style={[
+                    styles.campaignTabPillText,
+                    selectedCampaignType === 'weekend_double' && styles.campaignTabPillTextActive,
+                  ]}
+                >
+                  ⚡ Weekend Special ({customers.length})
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.campaignTabPill,
+                  selectedCampaignType === 'we_miss_you' && styles.campaignTabPillActive,
+                ]}
+                onPress={() => setSelectedCampaignType('we_miss_you')}
+                activeOpacity={0.7}
+              >
+                <Text
+                  style={[
+                    styles.campaignTabPillText,
+                    selectedCampaignType === 'we_miss_you' && styles.campaignTabPillTextActive,
+                  ]}
+                >
+                  ❤️ We Miss You ({missYouCount})
+                </Text>
+              </TouchableOpacity>
+            </ScrollView>
+
+            {/* Message Preview Box */}
+            <View style={styles.campaignPreviewCard}>
+              <View style={styles.campaignPreviewHeader}>
+                <Text style={styles.campaignPreviewTitle}>Preview Message:</Text>
+                <TouchableOpacity
+                  style={styles.copyCampaignBtn}
+                  onPress={async () => {
+                    const sampleMsg = getCampaignMessage(
+                      selectedCampaignType,
+                      campaignMatchingCustomers[0] || null
+                    );
+                    await Clipboard.setStringAsync(sampleMsg);
+                    setCopiedCampaignText(true);
+                    setTimeout(() => setCopiedCampaignText(false), 2000);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.copyCampaignBtnText}>
+                    {copiedCampaignText ? '✓ Copied' : '📋 Copy Text'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+              <Text style={styles.campaignPreviewBody}>
+                {getCampaignMessage(
+                  selectedCampaignType,
+                  campaignMatchingCustomers[0] || null
+                )}
+              </Text>
+            </View>
+
+            {/* Target Audience List */}
+            <View style={styles.campaignAudienceHeaderRow}>
+              <Text style={styles.campaignAudienceTitle}>
+                Targeted Customers ({campaignMatchingCustomers.length})
+              </Text>
+            </View>
+
+            {campaignMatchingCustomers.length === 0 ? (
+              <View style={styles.emptyCampaignAudienceBox}>
+                <Text style={{ fontSize: 24, marginBottom: 4 }}>👥</Text>
+                <Text style={styles.emptyCampaignAudienceTitle}>
+                  No customers currently match this filter.
+                </Text>
+              </View>
+            ) : (
+              <ScrollView style={styles.campaignAudienceScroll} showsVerticalScrollIndicator={false}>
+                {campaignMatchingCustomers.map((cust) => {
+                  const remaining = Math.max(0, shop.stamps_required - (cust.current_stamps || 0));
+                  return (
+                    <View key={cust.id} style={styles.campaignCustomerRow}>
+                      <View style={{ flex: 1, marginRight: 8 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                          <Text style={styles.campaignCustomerName} numberOfLines={1}>
+                            {cust.name ? cust.name : 'Loyalty Member'}
+                          </Text>
+                          {isVipCustomer(cust) && (
+                            <View style={styles.vipBadgePill}>
+                              <Text style={styles.vipBadgePillText}>⭐ VIP</Text>
+                            </View>
+                          )}
+                        </View>
+                        <Text style={styles.campaignCustomerPhone}>
+                          {formatPhoneDisplay(cust.phone)} • {cust.current_stamps}/{shop.stamps_required} ★
+                          {remaining > 0 ? ` (${remaining} to free)` : ' (Ready!)'}
+                        </Text>
+                      </View>
+
+                      <TouchableOpacity
+                        style={styles.campaignSendBtn}
+                        onPress={() => {
+                          const msg = getCampaignMessage(selectedCampaignType, cust);
+                          sendWhatsApp(cust.phone, msg);
+                        }}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={styles.campaignSendBtnText}>💬 Send</Text>
+                      </TouchableOpacity>
+                    </View>
+                  );
+                })}
+              </ScrollView>
+            )}
+
+            <TouchableOpacity
+              style={styles.activityDoneBtn}
+              onPress={() => setCampaignModalVisible(false)}
             >
               <Text style={styles.activityDoneBtnText}>Done</Text>
             </TouchableOpacity>
@@ -2474,5 +2761,181 @@ const styles = StyleSheet.create({
   },
   btnDisabled: {
     opacity: 0.5,
+  },
+
+  /* WhatsApp Campaign Styles */
+  headerActionsRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  campaignHeaderBtn: {
+    backgroundColor: '#DCFCE7',
+    borderColor: '#86EFAC',
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  campaignHeaderBtnText: {
+    color: '#15803D',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  campaignModalCard: {
+    width: '100%',
+    maxWidth: 440,
+    maxHeight: '90%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 18,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  campaignModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  campaignModalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  campaignModalSub: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  campaignTabsScroll: {
+    marginBottom: 12,
+  },
+  campaignTabsContent: {
+    gap: 8,
+    paddingVertical: 2,
+  },
+  campaignTabPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 20,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  campaignTabPillActive: {
+    backgroundColor: '#0F172A',
+    borderColor: '#0F172A',
+  },
+  campaignTabPillText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  campaignTabPillTextActive: {
+    color: '#FFFFFF',
+  },
+  campaignPreviewCard: {
+    backgroundColor: '#F8FAFC',
+    borderColor: '#E2E8F0',
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+  },
+  campaignPreviewHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  campaignPreviewTitle: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#64748B',
+    textTransform: 'uppercase',
+  },
+  copyCampaignBtn: {
+    backgroundColor: '#EFF6FF',
+    borderColor: '#BFDBFE',
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  copyCampaignBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#2563EB',
+  },
+  campaignPreviewBody: {
+    fontSize: 12,
+    color: '#334155',
+    lineHeight: 18,
+    fontStyle: 'italic',
+  },
+  campaignAudienceHeaderRow: {
+    marginBottom: 8,
+  },
+  campaignAudienceTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  emptyCampaignAudienceBox: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 24,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  emptyCampaignAudienceTitle: {
+    fontSize: 13,
+    color: '#94A3B8',
+    fontWeight: '500',
+  },
+  campaignAudienceScroll: {
+    maxHeight: 220,
+    marginBottom: 12,
+  },
+  campaignCustomerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F8FAFC',
+    padding: 10,
+    borderRadius: 10,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  campaignCustomerName: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  campaignCustomerPhone: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  campaignSendBtn: {
+    backgroundColor: '#22C55E',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  campaignSendBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '800',
   },
 });
