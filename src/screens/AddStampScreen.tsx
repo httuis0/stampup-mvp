@@ -40,6 +40,13 @@ import {
   saveCustomerNote,
   cleanPhoneKey,
 } from '../utils/customerNotes';
+import {
+  enqueueOfflineStamp,
+  processOfflineQueue,
+  subscribeToOfflineQueue,
+  isNetworkError,
+  QueuedStamp,
+} from '../utils/offlineQueue';
 import type { Shop, Customer, StampRequest } from '../types';
 
 interface AddStampScreenProps {
@@ -114,6 +121,13 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({ shop }) => {
   const [targetNoteCustomerName, setTargetNoteCustomerName] = useState<string>('');
   const [noteTextInput, setNoteTextInput] = useState<string>('');
   const [savingNote, setSavingNote] = useState<boolean>(false);
+
+  // Offline Resilience State
+  const [queuedStamps, setQueuedStamps] = useState<QueuedStamp[]>([]);
+  const [isSyncingQueue, setIsSyncingQueue] = useState<boolean>(false);
+  const [syncFeedback, setSyncFeedback] = useState<string | null>(null);
+  const [offlineStampSaved, setOfflineStampSaved] = useState<{ phone: string } | null>(null);
+  const [offlineQueueModalVisible, setOfflineQueueModalVisible] = useState<boolean>(false);
 
   // Load Customer Notes
   const loadNotes = async () => {
@@ -255,6 +269,82 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({ shop }) => {
     setCardFullInfo(null);
     setTooSoonInfo(null);
     setErrorMessage(null);
+    setOfflineStampSaved(null);
+  };
+
+  // Subscribe to offline queue and trigger periodic auto-sync
+  useEffect(() => {
+    const unsubscribe = subscribeToOfflineQueue((queue) => {
+      const shopItems = queue.filter((item) => item.shopId === shop.id);
+      setQueuedStamps(shopItems);
+    });
+
+    // Attempt sync immediately on load
+    processOfflineQueue(shop.id).then((res) => {
+      if (res.synced > 0) {
+        setSyncFeedback(`✓ Auto-synced ${res.synced} offline stamp${res.synced > 1 ? 's' : ''} to cloud!`);
+        setTimeout(() => setSyncFeedback(null), 4000);
+        fetchRecentCustomers();
+      }
+    });
+
+    // Check & auto-sync every 15 seconds
+    const syncInterval = setInterval(() => {
+      processOfflineQueue(shop.id).then((res) => {
+        if (res.synced > 0) {
+          setSyncFeedback(`✓ Auto-synced ${res.synced} offline stamp${res.synced > 1 ? 's' : ''} to cloud!`);
+          setTimeout(() => setSyncFeedback(null), 4000);
+          fetchRecentCustomers();
+        }
+      });
+    }, 15000);
+
+    // If web, also listen to online event
+    let onlineListener: any = null;
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      onlineListener = () => {
+        processOfflineQueue(shop.id).then((res) => {
+          if (res.synced > 0) {
+            setSyncFeedback(`✓ Reconnected! Synced ${res.synced} offline stamp${res.synced > 1 ? 's' : ''}!`);
+            setTimeout(() => setSyncFeedback(null), 4000);
+            fetchRecentCustomers();
+          }
+        });
+      };
+      window.addEventListener('online', onlineListener);
+    }
+
+    return () => {
+      unsubscribe();
+      clearInterval(syncInterval);
+      if (onlineListener && typeof window !== 'undefined') {
+        window.removeEventListener('online', onlineListener);
+      }
+    };
+  }, [shop.id]);
+
+  // Manual Sync trigger
+  const handleManualSync = async () => {
+    setIsSyncingQueue(true);
+    try {
+      const res = await processOfflineQueue(shop.id);
+      if (res.synced > 0) {
+        setSyncFeedback(`✓ Synced ${res.synced} offline stamp${res.synced > 1 ? 's' : ''} to cloud!`);
+        setTimeout(() => setSyncFeedback(null), 4000);
+        fetchRecentCustomers();
+      } else if (res.remaining > 0) {
+        Alert.alert(
+          'Still Offline',
+          'Internet connection is not yet restored. Your stamps remain safely preserved on this device.'
+        );
+      } else {
+        Alert.alert('Queue Empty', 'All stamps are already synchronized with the cloud.');
+      }
+    } catch (e) {
+      console.warn('Manual sync failed:', e);
+    } finally {
+      setIsSyncingQueue(false);
+    }
   };
 
   // Add Stamp Confirmation Modal State
@@ -316,6 +406,14 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({ shop }) => {
       });
 
       if (error) {
+        if (isNetworkError(error)) {
+          await enqueueOfflineStamp(shop.id, normalizedPhone);
+          playStampFeedback();
+          setTodayStampsCount((prev) => prev + 1);
+          setOfflineStampSaved({ phone: normalizedPhone });
+          setPhone('');
+          return;
+        }
         setErrorMessage(error.message || strings.common.error);
         playWarningFeedback();
         return;
@@ -378,6 +476,14 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({ shop }) => {
         playWarningFeedback();
       }
     } catch (err: any) {
+      if (isNetworkError(err)) {
+        await enqueueOfflineStamp(shop.id, normalizedPhone);
+        playStampFeedback();
+        setTodayStampsCount((prev) => prev + 1);
+        setOfflineStampSaved({ phone: normalizedPhone });
+        setPhone('');
+        return;
+      }
       setErrorMessage(err?.message || strings.common.error);
       playWarningFeedback();
     } finally {
@@ -673,6 +779,77 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({ shop }) => {
                 </View>
               </View>
             ))}
+          </View>
+        )}
+
+        {/* ---------------------------------------------------- */}
+        {/* OFFLINE QUEUE PENDING BANNER */}
+        {/* ---------------------------------------------------- */}
+        {queuedStamps.length > 0 && (
+          <View style={styles.offlineQueueBanner}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
+              <View style={styles.offlinePulseDot} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.offlineQueueBannerTitle}>
+                  📴 {queuedStamps.length} Offline Stamp{queuedStamps.length > 1 ? 's' : ''} Stored
+                </Text>
+                <Text style={styles.offlineQueueBannerSubtitle} numberOfLines={1}>
+                  Saved locally • Auto-syncs when online
+                </Text>
+              </View>
+            </View>
+            <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
+              <TouchableOpacity
+                style={styles.viewQueueSmallBtn}
+                onPress={() => setOfflineQueueModalVisible(true)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.viewQueueSmallBtnText}>List</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.syncNowSmallBtn}
+                onPress={handleManualSync}
+                disabled={isSyncingQueue}
+                activeOpacity={0.8}
+              >
+                {isSyncingQueue ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.syncNowSmallBtnText}>🔄 Sync</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        {/* ---------------------------------------------------- */}
+        {/* SYNC FEEDBACK BANNER */}
+        {/* ---------------------------------------------------- */}
+        {syncFeedback && (
+          <View style={styles.syncSuccessBanner}>
+            <Text style={styles.syncSuccessBannerText}>{syncFeedback}</Text>
+          </View>
+        )}
+
+        {/* ---------------------------------------------------- */}
+        {/* OFFLINE STAMP JUST SAVED BANNER */}
+        {/* ---------------------------------------------------- */}
+        {offlineStampSaved && (
+          <View style={styles.offlineSavedCard}>
+            <View style={styles.offlineSavedHeader}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
+                <Text style={{ fontSize: 16 }}>📴</Text>
+                <Text style={styles.offlineSavedTitle}>Stamp Saved Locally (Offline)</Text>
+              </View>
+              <TouchableOpacity onPress={() => setOfflineStampSaved(null)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Text style={styles.offlineSavedCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.offlineSavedBody}>
+              Internet connection is down, but +1 stamp for{' '}
+              <Text style={{ fontWeight: '800' }}>{formatPhoneForDisplay(offlineStampSaved.phone)}</Text>{' '}
+              was securely saved on this device. It will automatically upload to the cloud as soon as connection is restored.
+            </Text>
           </View>
         )}
 
@@ -1236,6 +1413,85 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({ shop }) => {
                   <ActivityIndicator color="#FFFFFF" size="small" />
                 ) : (
                   <Text style={styles.noteModalSaveText}>Save Note</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ---------------------------------------------------- */}
+      {/* OFFLINE QUEUE MODAL (Manager / Cashier inspection) */}
+      {/* ---------------------------------------------------- */}
+      <Modal
+        visible={offlineQueueModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setOfflineQueueModalVisible(false)}
+      >
+        <View style={styles.noteModalOverlay}>
+          <View style={[styles.noteModalCard, { maxHeight: '80%' }]}>
+            <View style={styles.noteModalHeader}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={{ fontSize: 18 }}>📴</Text>
+                <Text style={styles.noteModalTitle}>Offline Stamp Queue</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setOfflineQueueModalVisible(false)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Text style={styles.noteModalCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.noteModalSub}>
+              {queuedStamps.length === 0
+                ? 'No stamps currently in the offline queue.'
+                : `${queuedStamps.length} stamp(s) pending sync to cloud database:`}
+            </Text>
+
+            <ScrollView style={{ maxHeight: 240, marginVertical: 8 }}>
+              {queuedStamps.map((item, idx) => (
+                <View key={item.id || idx} style={styles.queuedItemRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.queuedItemPhone}>
+                      {formatPhoneForDisplay(item.phone)}
+                    </Text>
+                    <Text style={styles.queuedItemMeta}>
+                      Queued: {getTimeAgo(new Date(item.timestamp).toISOString())} • Retries: {item.retryCount}
+                    </Text>
+                  </View>
+                  <View style={styles.queuedItemBadge}>
+                    <Text style={styles.queuedItemBadgeText}>Pending</Text>
+                  </View>
+                </View>
+              ))}
+            </ScrollView>
+
+            <View style={styles.noteModalButtonsRow}>
+              <TouchableOpacity
+                style={styles.noteModalCancelBtn}
+                onPress={() => setOfflineQueueModalVisible(false)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.noteModalCancelText}>Close</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.noteModalSaveBtn, isSyncingQueue && styles.btnDisabled]}
+                onPress={async () => {
+                  await handleManualSync();
+                  if (queuedStamps.length <= 1) {
+                    setOfflineQueueModalVisible(false);
+                  }
+                }}
+                disabled={isSyncingQueue || queuedStamps.length === 0}
+                activeOpacity={0.85}
+              >
+                {isSyncingQueue ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <Text style={styles.noteModalSaveText}>🔄 Sync All Now</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -2345,5 +2601,140 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '800',
+  },
+
+  /* Offline Resilience & Stamp Queue */
+  offlineQueueBanner: {
+    backgroundColor: '#EFF6FF',
+    borderColor: '#BFDBFE',
+    borderWidth: 1.5,
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  offlinePulseDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#3B82F6',
+  },
+  offlineQueueBannerTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#1E40AF',
+  },
+  offlineQueueBannerSubtitle: {
+    fontSize: 11,
+    color: '#3B82F6',
+    marginTop: 1,
+  },
+  viewQueueSmallBtn: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#DBEAFE',
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+  viewQueueSmallBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#2563EB',
+  },
+  syncNowSmallBtn: {
+    backgroundColor: '#2563EB',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  syncNowSmallBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  syncSuccessBanner: {
+    backgroundColor: '#F0FDF4',
+    borderColor: '#BBF7D0',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginBottom: 12,
+    alignItems: 'center',
+  },
+  syncSuccessBannerText: {
+    color: '#166534',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  offlineSavedCard: {
+    backgroundColor: '#FEF3C7',
+    borderColor: '#FDE68A',
+    borderWidth: 1.5,
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 12,
+  },
+  offlineSavedHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  offlineSavedTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#92400E',
+  },
+  offlineSavedCloseText: {
+    fontSize: 14,
+    color: '#92400E',
+    fontWeight: '700',
+    padding: 2,
+  },
+  offlineSavedBody: {
+    fontSize: 12,
+    color: '#78350F',
+    lineHeight: 16,
+  },
+  queuedItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F8FAFC',
+    borderColor: '#E2E8F0',
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 8,
+  },
+  queuedItemPhone: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  queuedItemMeta: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  queuedItemBadge: {
+    backgroundColor: '#EFF6FF',
+    borderColor: '#BFDBFE',
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  queuedItemBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#1D4ED8',
   },
 });
