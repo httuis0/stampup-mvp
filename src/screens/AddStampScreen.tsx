@@ -34,6 +34,12 @@ import {
   playWarningFeedback,
   playUndoFeedback,
 } from '../utils/feedback';
+import {
+  isVipCustomer,
+  getAllCustomerNotes,
+  saveCustomerNote,
+  cleanPhoneKey,
+} from '../utils/customerNotes';
 import type { Shop, Customer, StampRequest } from '../types';
 
 interface AddStampScreenProps {
@@ -100,6 +106,45 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({ shop }) => {
   const [pendingRequests, setPendingRequests] = useState<StampRequest[]>([]);
   const [showRequestsModal, setShowRequestsModal] = useState<boolean>(false);
   const [resolvingId, setResolvingId] = useState<string | null>(null);
+
+  // Customer notes & VIP status
+  const [customerNotes, setCustomerNotes] = useState<Record<string, string>>({});
+  const [noteModalVisible, setNoteModalVisible] = useState<boolean>(false);
+  const [targetNotePhone, setTargetNotePhone] = useState<string>('');
+  const [targetNoteCustomerName, setTargetNoteCustomerName] = useState<string>('');
+  const [noteTextInput, setNoteTextInput] = useState<string>('');
+  const [savingNote, setSavingNote] = useState<boolean>(false);
+
+  // Load Customer Notes
+  const loadNotes = async () => {
+    try {
+      const notes = await getAllCustomerNotes(shop.id);
+      setCustomerNotes(notes);
+    } catch (e) {}
+  };
+
+  useEffect(() => {
+    loadNotes();
+  }, [shop.id]);
+
+  // Save Note from Counter Handler
+  const handleSaveCounterNote = async () => {
+    if (!targetNotePhone) return;
+    setSavingNote(true);
+    await saveCustomerNote(shop.id, targetNotePhone, noteTextInput);
+    setCustomerNotes((prev) => {
+      const updated = { ...prev };
+      const key = cleanPhoneKey(targetNotePhone);
+      if (noteTextInput.trim()) {
+        updated[key] = noteTextInput.trim();
+      } else {
+        delete updated[key];
+      }
+      return updated;
+    });
+    setSavingNote(false);
+    setNoteModalVisible(false);
+  };
 
   // Undo button state (active for 30 seconds)
   const [lastAction, setLastAction] = useState<LastActionInfo | null>(null);
@@ -473,6 +518,29 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({ shop }) => {
     return <View style={styles.stampSpotsGrid}>{circles}</View>;
   };
 
+  // Compute currently matched customer for input recognition
+  const cleanedInputDigits = phone.trim().replace(/[^0-9]/g, '');
+  const matchedCustomerForInput =
+    cleanedInputDigits.length >= 3
+      ? matchingCustomers.find(
+          (c) =>
+            cleanPhoneKey(c.phone) === cleanedInputDigits ||
+            cleanPhoneKey(c.phone).endsWith(cleanedInputDigits)
+        ) ||
+        recentCustomers.find(
+          (c) =>
+            cleanPhoneKey(c.phone) === cleanedInputDigits ||
+            cleanPhoneKey(c.phone).endsWith(cleanedInputDigits)
+        )
+      : null;
+  const matchedPhoneKey = matchedCustomerForInput
+    ? cleanPhoneKey(matchedCustomerForInput.phone)
+    : cleanedInputDigits;
+  const currentCustomerNote = customerNotes[matchedPhoneKey];
+  const isCurrentVip = matchedCustomerForInput
+    ? isVipCustomer(matchedCustomerForInput)
+    : false;
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -778,6 +846,56 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({ shop }) => {
             </Text>
           </View>
 
+          {/* Customer Recognition Banner (VIP / Personal Note) */}
+          {(isCurrentVip || currentCustomerNote) ? (
+            <View style={styles.counterVipBanner}>
+              <View style={styles.counterVipHeaderRow}>
+                {isCurrentVip ? (
+                  <View style={styles.counterVipBadge}>
+                    <Text style={styles.counterVipBadgeText}>⭐ VIP Regular Customer</Text>
+                  </View>
+                ) : (
+                  <View style={styles.counterMemberBadge}>
+                    <Text style={styles.counterMemberBadgeText}>Active Member</Text>
+                  </View>
+                )}
+
+                {matchedCustomerForInput?.rewards_given ? (
+                  <Text style={styles.counterRewardsClaimedText}>
+                    🎁 {matchedCustomerForInput.rewards_given} redeemed
+                  </Text>
+                ) : null}
+              </View>
+
+              {currentCustomerNote ? (
+                <View style={styles.counterNotePreviewRow}>
+                  <Text style={styles.counterNoteIcon}>📝</Text>
+                  <Text style={styles.counterNoteBody} numberOfLines={2}>
+                    "{currentCustomerNote}"
+                  </Text>
+                </View>
+              ) : null}
+
+              <TouchableOpacity
+                style={styles.counterEditNoteButton}
+                onPress={() => {
+                  const targetPh = matchedCustomerForInput
+                    ? matchedCustomerForInput.phone
+                    : phone;
+                  setTargetNotePhone(targetPh);
+                  setTargetNoteCustomerName(matchedCustomerForInput?.name || '');
+                  setNoteTextInput(currentCustomerNote || '');
+                  setNoteModalVisible(true);
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.counterEditNoteButtonText}>
+                  {currentCustomerNote ? '✏️ Edit Customer Note' : '+ Add Note'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
+
           {/* Big Add Stamp Button */}
           <TouchableOpacity
             style={[styles.bigAddButton, loading && styles.buttonDisabled]}
@@ -810,12 +928,24 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({ shop }) => {
                   </Text>
                 </View>
                 <View style={styles.customerRowInfo}>
-                  <Text style={styles.customerRowName} numberOfLines={1}>
-                    {cust.name ? cust.name : 'Loyalty Member'}
-                  </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Text style={styles.customerRowName} numberOfLines={1}>
+                      {cust.name ? cust.name : 'Loyalty Member'}
+                    </Text>
+                    {isVipCustomer(cust) && (
+                      <View style={styles.miniVipBadge}>
+                        <Text style={styles.miniVipBadgeText}>⭐ VIP</Text>
+                      </View>
+                    )}
+                  </View>
                   <Text style={styles.customerRowPhone}>
                     {formatPhoneForDisplay(cust.phone)}
                   </Text>
+                  {customerNotes[cleanPhoneKey(cust.phone)] ? (
+                    <Text style={styles.quickCustomerNoteText} numberOfLines={1}>
+                      📝 {customerNotes[cleanPhoneKey(cust.phone)]}
+                    </Text>
+                  ) : null}
                   <View style={styles.miniStarProgressRow}>
                     <Text style={styles.miniStarProgressText}>
                       ★ {cust.current_stamps}/{shop.stamps_required} stamps
@@ -846,12 +976,24 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({ shop }) => {
                   </Text>
                 </View>
                 <View style={styles.customerRowInfo}>
-                  <Text style={styles.customerRowName} numberOfLines={1}>
-                    {cust.name ? cust.name : 'Loyalty Member'}
-                  </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Text style={styles.customerRowName} numberOfLines={1}>
+                      {cust.name ? cust.name : 'Loyalty Member'}
+                    </Text>
+                    {isVipCustomer(cust) && (
+                      <View style={styles.miniVipBadge}>
+                        <Text style={styles.miniVipBadgeText}>⭐ VIP</Text>
+                      </View>
+                    )}
+                  </View>
                   <Text style={styles.customerRowPhone}>
                     {formatPhoneForDisplay(cust.phone)}
                   </Text>
+                  {customerNotes[cleanPhoneKey(cust.phone)] ? (
+                    <Text style={styles.quickCustomerNoteText} numberOfLines={1}>
+                      📝 {customerNotes[cleanPhoneKey(cust.phone)]}
+                    </Text>
+                  ) : null}
                   <View style={styles.miniStarProgressRow}>
                     <Text style={styles.miniStarProgressText}>
                       ★ {cust.current_stamps}/{shop.stamps_required} stamps
@@ -1039,6 +1181,67 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({ shop }) => {
         onSelectCountry={setSelectedCountry}
         onClose={() => setCountryModalVisible(false)}
       />
+
+      {/* ---------------------------------------------------- */}
+      {/* COUNTER QUICK CUSTOMER NOTE MODAL */}
+      {/* ---------------------------------------------------- */}
+      <Modal
+        visible={noteModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setNoteModalVisible(false)}
+      >
+        <View style={styles.noteModalOverlay}>
+          <View style={styles.noteModalCard}>
+            <View style={styles.noteModalHeader}>
+              <Text style={styles.noteModalTitle}>📝 Customer Note</Text>
+              <TouchableOpacity
+                onPress={() => setNoteModalVisible(false)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Text style={styles.noteModalCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.noteModalSub}>
+              Note for {targetNoteCustomerName ? `${targetNoteCustomerName} (${formatPhoneForDisplay(targetNotePhone)})` : formatPhoneForDisplay(targetNotePhone)}:
+            </Text>
+
+            <TextInput
+              style={styles.noteModalInput}
+              placeholder="e.g. Prefers oat milk, Allergic to nuts, Regular..."
+              placeholderTextColor="#94A3B8"
+              value={noteTextInput}
+              onChangeText={setNoteTextInput}
+              multiline
+              autoFocus
+            />
+
+            <View style={styles.noteModalButtonsRow}>
+              <TouchableOpacity
+                style={styles.noteModalCancelBtn}
+                onPress={() => setNoteModalVisible(false)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.noteModalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.noteModalSaveBtn, savingNote && styles.btnDisabled]}
+                onPress={handleSaveCounterNote}
+                disabled={savingNote}
+                activeOpacity={0.85}
+              >
+                {savingNote ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <Text style={styles.noteModalSaveText}>Save Note</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 };
@@ -1967,5 +2170,180 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '900',
+  },
+
+  /* Counter Recognition & VIP Styles */
+  counterVipBanner: {
+    backgroundColor: '#FEF3C7',
+    borderColor: '#FDE68A',
+    borderWidth: 1.5,
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 12,
+  },
+  counterVipHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  counterVipBadge: {
+    backgroundColor: '#FDE68A',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  counterVipBadgeText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#92400E',
+  },
+  counterMemberBadge: {
+    backgroundColor: '#DBEAFE',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  counterMemberBadgeText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#1E40AF',
+  },
+  counterRewardsClaimedText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#B45309',
+  },
+  counterNotePreviewRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#FFFFFF',
+    padding: 8,
+    borderRadius: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: '#F59E0B',
+    marginBottom: 8,
+    gap: 6,
+  },
+  counterNoteIcon: {
+    fontSize: 13,
+  },
+  counterNoteBody: {
+    flex: 1,
+    fontSize: 12,
+    color: '#78350F',
+    fontWeight: '600',
+    fontStyle: 'italic',
+  },
+  counterEditNoteButton: {
+    alignSelf: 'flex-start',
+    paddingVertical: 3,
+  },
+  counterEditNoteButtonText: {
+    fontSize: 11,
+    color: '#B45309',
+    fontWeight: '700',
+  },
+  miniVipBadge: {
+    backgroundColor: '#FEF3C7',
+    borderColor: '#FDE68A',
+    borderWidth: 1,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 6,
+    marginLeft: 6,
+  },
+  miniVipBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#D97706',
+  },
+  quickCustomerNoteText: {
+    fontSize: 11,
+    color: '#3B82F6',
+    fontStyle: 'italic',
+    marginTop: 1,
+  },
+
+  /* Note Modal */
+  noteModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  noteModalCard: {
+    width: '100%',
+    maxWidth: 380,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  noteModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  noteModalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  noteModalCloseText: {
+    fontSize: 18,
+    color: '#94A3B8',
+    fontWeight: '700',
+  },
+  noteModalSub: {
+    fontSize: 13,
+    color: '#64748B',
+    marginBottom: 12,
+  },
+  noteModalInput: {
+    backgroundColor: '#F8FAFC',
+    borderColor: '#CBD5E1',
+    borderWidth: 1.5,
+    borderRadius: 12,
+    padding: 12,
+    fontSize: 14,
+    color: '#0F172A',
+    minHeight: 80,
+    textAlignVertical: 'top',
+    marginBottom: 16,
+  },
+  noteModalButtonsRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  noteModalCancelBtn: {
+    flex: 1,
+    backgroundColor: '#F1F5F9',
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  noteModalCancelText: {
+    color: '#64748B',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  noteModalSaveBtn: {
+    flex: 1.2,
+    backgroundColor: '#2563EB',
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  noteModalSaveText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '800',
   },
 });

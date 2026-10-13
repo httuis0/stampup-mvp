@@ -25,6 +25,12 @@ import {
 import { supabase } from '../lib/supabase';
 import { strings } from '../constants/strings';
 import { formatPhoneDisplay } from '../utils/phone';
+import {
+  isVipCustomer,
+  getAllCustomerNotes,
+  saveCustomerNote,
+  cleanPhoneKey,
+} from '../utils/customerNotes';
 import type { Shop, Customer } from '../types';
 
 interface CustomersScreenProps {
@@ -94,6 +100,51 @@ export const CustomersScreen: React.FC<CustomersScreenProps> = ({ shop }) => {
   const [activityEvents, setActivityEvents] = useState<ActivityEvent[]>([]);
   const [dateActivityLoading, setDateActivityLoading] = useState<boolean>(false);
   const [activitySearchQuery, setActivitySearchQuery] = useState<string>('');
+
+  // Customer Notes Map & Editing State
+  const [notesMap, setNotesMap] = useState<Record<string, string>>({});
+  const [noteInput, setNoteInput] = useState<string>('');
+  const [savingNote, setSavingNote] = useState<boolean>(false);
+  const [noteSavedBadge, setNoteSavedBadge] = useState<boolean>(false);
+
+  // Load Customer Notes
+  const loadNotes = useCallback(async () => {
+    const notes = await getAllCustomerNotes(shop.id);
+    setNotesMap(notes);
+  }, [shop.id]);
+
+  useEffect(() => {
+    loadNotes();
+  }, [loadNotes]);
+
+  // Sync note input when selectedCustomer changes
+  useEffect(() => {
+    if (selectedCustomer) {
+      const existing = notesMap[cleanPhoneKey(selectedCustomer.phone)] || '';
+      setNoteInput(existing);
+      setNoteSavedBadge(false);
+    }
+  }, [selectedCustomer, notesMap]);
+
+  // Save Customer Note Handler
+  const handleSaveNote = async () => {
+    if (!selectedCustomer) return;
+    setSavingNote(true);
+    await saveCustomerNote(shop.id, selectedCustomer.phone, noteInput);
+    setNotesMap((prev) => {
+      const updated = { ...prev };
+      const key = cleanPhoneKey(selectedCustomer.phone);
+      if (noteInput.trim()) {
+        updated[key] = noteInput.trim();
+      } else {
+        delete updated[key];
+      }
+      return updated;
+    });
+    setSavingNote(false);
+    setNoteSavedBadge(true);
+    setTimeout(() => setNoteSavedBadge(false), 2500);
+  };
 
   // Fetch individual customer history when selected
   useEffect(() => {
@@ -359,8 +410,20 @@ export const CustomersScreen: React.FC<CustomersScreenProps> = ({ shop }) => {
               <Text style={styles.customerNameTitle} numberOfLines={1}>
                 {item.name ? item.name : 'Loyalty Member'}
               </Text>
+              {isVipCustomer(item) && (
+                <View style={styles.vipBadgePill}>
+                  <Text style={styles.vipBadgePillText}>⭐ VIP</Text>
+                </View>
+              )}
             </View>
             <Text style={styles.phoneText}>{formatPhoneDisplay(item.phone)}</Text>
+            {notesMap[cleanPhoneKey(item.phone)] ? (
+              <View style={styles.notePreviewRow}>
+                <Text style={styles.notePreviewText} numberOfLines={1}>
+                  📝 {notesMap[cleanPhoneKey(item.phone)]}
+                </Text>
+              </View>
+            ) : null}
           </View>
 
           {/* Stamp Badge */}
@@ -714,9 +777,15 @@ export const CustomersScreen: React.FC<CustomersScreenProps> = ({ shop }) => {
                       {formatPhoneDisplay(selectedCustomer.phone)}
                     </Text>
                   </View>
-                  <View style={styles.detailStatusBadge}>
-                    <Text style={styles.detailStatusBadgeText}>Active Member</Text>
-                  </View>
+                  {isVipCustomer(selectedCustomer) ? (
+                    <View style={styles.detailStatusBadgeVip}>
+                      <Text style={styles.detailStatusBadgeVipText}>⭐ VIP Regular</Text>
+                    </View>
+                  ) : (
+                    <View style={styles.detailStatusBadge}>
+                      <Text style={styles.detailStatusBadgeText}>Active Member</Text>
+                    </View>
+                  )}
                 </View>
 
                 {/* Stat summary grid */}
@@ -790,6 +859,41 @@ export const CustomersScreen: React.FC<CustomersScreenProps> = ({ shop }) => {
                       {formatDate(selectedCustomer.created_at)}
                     </Text>
                   </View>
+                </View>
+
+                {/* Customer Note / Preference Card */}
+                <View style={styles.detailNotesCard}>
+                  <View style={styles.detailNotesHeader}>
+                    <Text style={styles.detailNotesTitle}>📝 Customer Note / Preferences</Text>
+                    {noteSavedBadge && (
+                      <View style={styles.noteSavedBadgePill}>
+                        <Text style={styles.noteSavedBadgeText}>✓ Saved</Text>
+                      </View>
+                    )}
+                  </View>
+                  <Text style={styles.detailNotesSub}>
+                    Visible to cashiers at counter when stamping this customer:
+                  </Text>
+                  <TextInput
+                    style={styles.detailNotesInput}
+                    placeholder="e.g. Prefers oat milk, Regular Saturday haircut, Friendly..."
+                    placeholderTextColor="#94A3B8"
+                    value={noteInput}
+                    onChangeText={setNoteInput}
+                    multiline
+                  />
+                  <TouchableOpacity
+                    style={[styles.saveNoteBtn, savingNote && styles.btnDisabled]}
+                    onPress={handleSaveNote}
+                    disabled={savingNote}
+                    activeOpacity={0.8}
+                  >
+                    {savingNote ? (
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                    ) : (
+                      <Text style={styles.saveNoteBtnText}>💾 Save Note</Text>
+                    )}
+                  </TouchableOpacity>
                 </View>
 
                 {/* Date-Wise Stamp & Reward Activity History */}
@@ -2263,5 +2367,112 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '800',
     color: '#15803D',
+  },
+
+  /* VIP & Customer Notes Styles */
+  vipBadgePill: {
+    marginLeft: 6,
+    backgroundColor: '#FEF3C7',
+    borderColor: '#FDE68A',
+    borderWidth: 1,
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 8,
+  },
+  vipBadgePillText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#D97706',
+  },
+  notePreviewRow: {
+    marginTop: 4,
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderLeftWidth: 2.5,
+    borderLeftColor: '#3B82F6',
+    maxWidth: '90%',
+  },
+  notePreviewText: {
+    fontSize: 11,
+    color: '#475569',
+    fontStyle: 'italic',
+  },
+  detailStatusBadgeVip: {
+    backgroundColor: '#FEF3C7',
+    borderColor: '#FDE68A',
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  detailStatusBadgeVipText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#B45309',
+  },
+  detailNotesCard: {
+    backgroundColor: '#F8FAFC',
+    borderColor: '#E2E8F0',
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 16,
+  },
+  detailNotesHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  detailNotesTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  noteSavedBadgePill: {
+    backgroundColor: '#DCFCE7',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  noteSavedBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#15803D',
+  },
+  detailNotesSub: {
+    fontSize: 11,
+    color: '#64748B',
+    marginBottom: 8,
+  },
+  detailNotesInput: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#CBD5E1',
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 10,
+    fontSize: 13,
+    color: '#0F172A',
+    minHeight: 56,
+    textAlignVertical: 'top',
+    marginBottom: 10,
+  },
+  saveNoteBtn: {
+    backgroundColor: '#2563EB',
+    paddingVertical: 8,
+    borderRadius: 8,
+    alignItems: 'center',
+    alignSelf: 'flex-end',
+    paddingHorizontal: 16,
+  },
+  saveNoteBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  btnDisabled: {
+    opacity: 0.5,
   },
 });
