@@ -18,6 +18,7 @@ import {
   Linking,
   Platform,
   Share,
+  Switch,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { supabase } from '../lib/supabase';
@@ -28,6 +29,14 @@ import { CountryPickerModal } from '../components/CountryPickerModal';
 import { Country, findCountryByDialCode } from '../utils/countries';
 import { GoogleMapPicker } from '../components/GoogleMapPicker';
 import { generateShopSlug } from '../utils/slug';
+import {
+  getSoundEnabled,
+  getHapticsEnabled,
+  setSoundEnabled,
+  setHapticsEnabled,
+  playStampFeedback,
+  playRewardFeedback,
+} from '../utils/feedback';
 import type { Shop } from '../types';
 
 type SettingsTab = 'shop' | 'region' | 'security' | 'qr' | 'account';
@@ -110,6 +119,32 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   const [oldPinInput, setOldPinInput] = useState<string>('');
   const [newPinInput, setNewPinInput] = useState<string>('');
   const [confirmPinInput, setConfirmPinInput] = useState<string>('');
+
+  // Audio & Haptic Feedback State
+  const [soundEnabled, setSoundEnabledState] = useState<boolean>(true);
+  const [hapticsEnabled, setHapticsEnabledState] = useState<boolean>(true);
+
+  // Load Sound & Haptic preferences on mount
+  useEffect(() => {
+    getSoundEnabled().then(setSoundEnabledState);
+    getHapticsEnabled().then(setHapticsEnabledState);
+  }, []);
+
+  const handleToggleSound = async (value: boolean) => {
+    setSoundEnabledState(value);
+    await setSoundEnabled(value);
+    if (value) {
+      playStampFeedback();
+    }
+  };
+
+  const handleToggleHaptics = async (value: boolean) => {
+    setHapticsEnabledState(value);
+    await setHapticsEnabled(value);
+    if (value) {
+      playStampFeedback();
+    }
+  };
 
   // Delete Account Handler
   const handleDeleteAccount = () => {
@@ -399,7 +434,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             activeOpacity={0.7}
           >
             <Text style={[styles.pipelineTabText, activeTab === 'security' && styles.pipelineTabTextActive]}>
-              🛡️ Cashier & PIN
+              🛡️ Cashier & Audio
             </Text>
           </TouchableOpacity>
 
@@ -717,37 +752,96 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         )}
 
         {/* -------------------------------------------------------- */}
-        {/* TAB 3: CASHIER & PIN */}
+        {/* TAB 3: CASHIER & AUDIO PREFERENCES */}
         {/* -------------------------------------------------------- */}
         {activeTab === 'security' && (
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>🛡️ Cashier Lock & Manager PIN</Text>
-            <Text style={styles.cardSubtitle}>
-              Cashier Mode locks the app to the Add Stamp screen. Cashiers cannot view settings, switch shops, or delete customers without your 4-digit PIN.
-            </Text>
+          <View>
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>🛡️ Cashier Lock & Manager PIN</Text>
+              <Text style={styles.cardSubtitle}>
+                Cashier Mode locks the app to the Add Stamp screen. Cashiers cannot view settings, switch shops, or delete customers without your 4-digit PIN.
+              </Text>
 
-            {/* Secure PIN Status Box */}
-            <View style={styles.securePinBox}>
-              <View>
-                <Text style={styles.securePinLabel}>Manager PIN Status</Text>
-                <Text style={styles.securePinMasked}>•••• (Active & Encrypted)</Text>
+              {/* Secure PIN Status Box */}
+              <View style={styles.securePinBox}>
+                <View>
+                  <Text style={styles.securePinLabel}>Manager PIN Status</Text>
+                  <Text style={styles.securePinMasked}>•••• (Active & Encrypted)</Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.changePinButton}
+                  onPress={() => setChangePinModalVisible(true)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.changePinButtonText}>Change PIN</Text>
+                </TouchableOpacity>
               </View>
+
               <TouchableOpacity
-                style={styles.changePinButton}
-                onPress={() => setChangePinModalVisible(true)}
+                style={styles.cashierModeButton}
+                onPress={onEnterCashierMode}
                 activeOpacity={0.7}
               >
-                <Text style={styles.changePinButtonText}>Change PIN</Text>
+                <Text style={styles.cashierModeButtonText}>🔒 Enter Cashier Mode Now</Text>
               </TouchableOpacity>
             </View>
 
-            <TouchableOpacity
-              style={styles.cashierModeButton}
-              onPress={onEnterCashierMode}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.cashierModeButtonText}>🔒 Enter Cashier Mode Now</Text>
-            </TouchableOpacity>
+            {/* Counter Sound & Haptic Feedback Card */}
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>🔊 Counter Sound & Haptic Feedback</Text>
+              <Text style={styles.cardSubtitle}>
+                Customize auditory registers and tactile vibration feedback when cashiers add stamps or award customer rewards.
+              </Text>
+
+              <View style={styles.settingToggleRow}>
+                <View style={{ flex: 1, paddingRight: 12 }}>
+                  <Text style={styles.settingToggleTitle}>Register Audio Chimes</Text>
+                  <Text style={styles.settingToggleSubtitle}>
+                    Plays a crisp coin chime on stamp additions and celebratory fanfare on rewards.
+                  </Text>
+                </View>
+                <Switch
+                  value={soundEnabled}
+                  onValueChange={handleToggleSound}
+                  trackColor={{ false: '#CBD5E1', true: '#93C5FD' }}
+                  thumbColor={soundEnabled ? '#2563EB' : '#F8FAFC'}
+                />
+              </View>
+
+              <View style={[styles.settingToggleRow, { borderBottomWidth: 0 }]}>
+                <View style={{ flex: 1, paddingRight: 12 }}>
+                  <Text style={styles.settingToggleTitle}>Tactile Haptic Vibration</Text>
+                  <Text style={styles.settingToggleSubtitle}>
+                    Physical device buzz for confirmation when buttons are pressed at the counter.
+                  </Text>
+                </View>
+                <Switch
+                  value={hapticsEnabled}
+                  onValueChange={handleToggleHaptics}
+                  trackColor={{ false: '#CBD5E1', true: '#93C5FD' }}
+                  thumbColor={hapticsEnabled ? '#2563EB' : '#F8FAFC'}
+                />
+              </View>
+
+              {/* Sound Audition Buttons */}
+              <View style={styles.feedbackTestRow}>
+                <TouchableOpacity
+                  style={styles.feedbackTestBtn}
+                  onPress={() => playStampFeedback()}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.feedbackTestBtnText}>▶️ Test Stamp Ding</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.feedbackTestBtn, { backgroundColor: '#FEF3C7', borderColor: '#FDE68A' }]}
+                  onPress={() => playRewardFeedback()}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.feedbackTestBtnText, { color: '#B45309' }]}>🏆 Test Fanfare</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
           </View>
         )}
 
@@ -1417,6 +1511,47 @@ const styles = StyleSheet.create({
   cashierModeButtonText: {
     color: '#FFFFFF',
     fontSize: 15,
+    fontWeight: '700',
+  },
+
+  /* Sound & Haptics Preferences */
+  settingToggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  settingToggleTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  settingToggleSubtitle: {
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+    lineHeight: 16,
+  },
+  feedbackTestRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 16,
+  },
+  feedbackTestBtn: {
+    flex: 1,
+    backgroundColor: '#EFF6FF',
+    borderColor: '#BFDBFE',
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  feedbackTestBtnText: {
+    color: '#1D4ED8',
+    fontSize: 13,
     fontWeight: '700',
   },
 

@@ -6,11 +6,47 @@
 
 import { Platform } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+// In-memory cache for instant synchronous checks
+let _soundEnabled = true;
+let _hapticsEnabled = true;
+
+// Initialize from storage on app load
+AsyncStorage.getItem('@stampup_sound_enabled').then((val) => {
+  if (val !== null) _soundEnabled = val === 'true';
+});
+AsyncStorage.getItem('@stampup_haptics_enabled').then((val) => {
+  if (val !== null) _hapticsEnabled = val === 'true';
+});
+
+export const getSoundEnabled = async (): Promise<boolean> => {
+  const val = await AsyncStorage.getItem('@stampup_sound_enabled');
+  if (val !== null) _soundEnabled = val === 'true';
+  return _soundEnabled;
+};
+
+export const getHapticsEnabled = async (): Promise<boolean> => {
+  const val = await AsyncStorage.getItem('@stampup_haptics_enabled');
+  if (val !== null) _hapticsEnabled = val === 'true';
+  return _hapticsEnabled;
+};
+
+export const setSoundEnabled = async (enabled: boolean): Promise<void> => {
+  _soundEnabled = enabled;
+  await AsyncStorage.setItem('@stampup_sound_enabled', enabled ? 'true' : 'false');
+};
+
+export const setHapticsEnabled = async (enabled: boolean): Promise<void> => {
+  _hapticsEnabled = enabled;
+  await AsyncStorage.setItem('@stampup_haptics_enabled', enabled ? 'true' : 'false');
+};
 
 // Safe Web Audio Context accessor
 let audioCtx: any = null;
 
 function getAudioContext() {
+  if (!_soundEnabled) return null;
   if (Platform.OS === 'web' && typeof window !== 'undefined') {
     const AudioContextClass = (window as any).AudioContext || (window as any).webkitAudioContext;
     if (AudioContextClass) {
@@ -32,9 +68,13 @@ function getAudioContext() {
  */
 export async function playStampFeedback() {
   // Tactile haptic vibration
-  try {
-    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-  } catch (e) {}
+  if (_hapticsEnabled) {
+    try {
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (e) {}
+  }
+
+  if (!_soundEnabled) return;
 
   // Synthesized audio chime
   try {
@@ -64,9 +104,13 @@ export async function playStampFeedback() {
  * Frequencies: C5 (523Hz), E5 (659Hz), G5 (784Hz), C6 (1046Hz)
  */
 export async function playRewardFeedback() {
-  try {
-    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-  } catch (e) {}
+  if (_hapticsEnabled) {
+    try {
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (e) {}
+  }
+
+  if (!_soundEnabled) return;
 
   try {
     const ctx = getAudioContext();
@@ -97,9 +141,13 @@ export async function playRewardFeedback() {
  * 3. Cooldown / Warning: Low Double-Thud
  */
 export async function playWarningFeedback() {
-  try {
-    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-  } catch (e) {}
+  if (_hapticsEnabled) {
+    try {
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    } catch (e) {}
+  }
+
+  if (!_soundEnabled) return;
 
   try {
     const ctx = getAudioContext();
@@ -127,9 +175,13 @@ export async function playWarningFeedback() {
  * 4. Undo: Low Rewind Swoop
  */
 export async function playUndoFeedback() {
-  try {
-    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-  } catch (e) {}
+  if (_hapticsEnabled) {
+    try {
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    } catch (e) {}
+  }
+
+  if (!_soundEnabled) return;
 
   try {
     const ctx = getAudioContext();
