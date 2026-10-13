@@ -47,6 +47,11 @@ import {
   isNetworkError,
   QueuedStamp,
 } from '../utils/offlineQueue';
+import {
+  subscribeToShopTheme,
+  StampThemeOption,
+  DEFAULT_THEME,
+} from '../utils/shopTheme';
 import type { Shop, Customer, StampRequest } from '../types';
 
 interface AddStampScreenProps {
@@ -128,6 +133,15 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({ shop }) => {
   const [syncFeedback, setSyncFeedback] = useState<string | null>(null);
   const [offlineStampSaved, setOfflineStampSaved] = useState<{ phone: string } | null>(null);
   const [offlineQueueModalVisible, setOfflineQueueModalVisible] = useState<boolean>(false);
+
+  // Shop Theme & Stamp Icon State
+  const [shopTheme, setShopTheme] = useState<StampThemeOption>(DEFAULT_THEME);
+
+  // Subscribe to shop theme changes
+  useEffect(() => {
+    const unsubscribe = subscribeToShopTheme(shop.id, setShopTheme);
+    return unsubscribe;
+  }, [shop.id]);
 
   // Load Customer Notes
   const loadNotes = async () => {
@@ -616,7 +630,7 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({ shop }) => {
       circles.push(
         <View key={i} style={[styles.stampSpot, isFilled && styles.stampSpotFilled]}>
           <Text style={[styles.stampSpotText, isFilled && styles.stampSpotTextFilled]}>
-            {isFilled ? '★' : i}
+            {isFilled ? shopTheme.icon : i}
           </Text>
         </View>
       );
@@ -1125,7 +1139,7 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({ shop }) => {
                   ) : null}
                   <View style={styles.miniStarProgressRow}>
                     <Text style={styles.miniStarProgressText}>
-                      ★ {cust.current_stamps}/{shop.stamps_required} stamps
+                      {shopTheme.icon} {cust.current_stamps}/{shop.stamps_required} stamps
                     </Text>
                   </View>
                 </View>
@@ -1173,7 +1187,7 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({ shop }) => {
                   ) : null}
                   <View style={styles.miniStarProgressRow}>
                     <Text style={styles.miniStarProgressText}>
-                      ★ {cust.current_stamps}/{shop.stamps_required} stamps
+                      {shopTheme.icon} {cust.current_stamps}/{shop.stamps_required} stamps
                     </Text>
                   </View>
                 </View>

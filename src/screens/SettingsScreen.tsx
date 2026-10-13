@@ -37,6 +37,12 @@ import {
   playStampFeedback,
   playRewardFeedback,
 } from '../utils/feedback';
+import {
+  STAMP_THEMES,
+  getShopTheme,
+  saveShopTheme,
+  StampThemeOption,
+} from '../utils/shopTheme';
 import type { Shop } from '../types';
 
 type SettingsTab = 'shop' | 'region' | 'security' | 'qr' | 'account';
@@ -91,6 +97,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   const [selectedCountry, setSelectedCountry] = useState<Country>(
     findCountryByDialCode(shop.default_country_code || '+971')
   );
+  const [selectedTheme, setSelectedTheme] = useState<StampThemeOption>(STAMP_THEMES[0]);
   const [loading, setLoading] = useState<boolean>(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -186,6 +193,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     setStampsRequired(shop.stamps_required);
     setRewardText(shop.reward_text);
     setSelectedCountry(findCountryByDialCode(shop.default_country_code || '+971'));
+    getShopTheme(shop.id, shop.stamp_icon).then(setSelectedTheme);
     setSuccessMessage(null);
     setErrorMessage(null);
     setIsEditingShopDetails(false);
@@ -231,7 +239,10 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         latitude: shopLatitude,
         longitude: shopLongitude,
         google_maps_url: shopGoogleMapsUrl,
+        stamp_icon: selectedTheme.icon,
       };
+
+      await saveShopTheme(shop.id, selectedTheme.id);
 
       const { data, error } = await supabase
         .from('shops')
@@ -533,10 +544,17 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                     </View>
                   </View>
 
-                  <View style={[styles.overviewRow, { borderBottomWidth: 0 }]}>
+                  <View style={styles.overviewRow}>
                     <Text style={styles.overviewLabel}>🎯 Reward Rule</Text>
                     <Text style={styles.overviewValue}>
                       {shop.stamps_required} stamps = {shop.reward_text}
+                    </Text>
+                  </View>
+
+                  <View style={[styles.overviewRow, { borderBottomWidth: 0 }]}>
+                    <Text style={styles.overviewLabel}>🎨 Stamp Symbol</Text>
+                    <Text style={styles.overviewValue}>
+                      {selectedTheme.icon} {selectedTheme.label}
                     </Text>
                   </View>
                 </View>
@@ -625,6 +643,27 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                     placeholderTextColor="#94A3B8"
                     editable={!loading}
                   />
+
+                  {/* Custom Stamp Icon & Brand Theme */}
+                  <Text style={[styles.inputLabel, { marginTop: 14 }]}>🎨 Stamp Icon & Brand Theme:</Text>
+                  <View style={styles.themeSelectorGrid}>
+                    {STAMP_THEMES.map((theme) => {
+                      const isSelected = selectedTheme.id === theme.id;
+                      return (
+                        <TouchableOpacity
+                          key={theme.id}
+                          style={[styles.themeOptionPill, isSelected && styles.themeOptionPillSelected]}
+                          onPress={() => setSelectedTheme(theme)}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={styles.themeOptionIcon}>{theme.icon}</Text>
+                          <Text style={[styles.themeOptionLabel, isSelected && styles.themeOptionLabelSelected]} numberOfLines={1}>
+                            {theme.label}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
 
                   <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
                     <TouchableOpacity
@@ -1615,6 +1654,50 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#0F172A',
     marginBottom: 12,
+  },
+  themeSelectorGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 14,
+    marginTop: 4,
+  },
+  themeOptionPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderColor: '#E2E8F0',
+    borderWidth: 1.5,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    gap: 6,
+  },
+  themeOptionPillSelected: {
+    backgroundColor: '#EFF6FF',
+    borderColor: '#2563EB',
+    shadowColor: '#2563EB',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  themeOptionIcon: {
+    fontSize: 16,
+  },
+  themeOptionLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  themeOptionLabelSelected: {
+    color: '#1D4ED8',
+    fontWeight: '800',
+  },
+  inputSubLabel: {
+    fontSize: 12,
+    color: '#64748B',
+    marginBottom: 8,
   },
   stepperContainer: {
     flexDirection: 'row',
