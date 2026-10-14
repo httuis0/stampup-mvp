@@ -14,6 +14,7 @@ import {
   StyleSheet,
   Modal,
   Alert,
+  BackHandler,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
@@ -39,21 +40,65 @@ export default function App() {
   const [activeShop, setActiveShop] = useState<Shop | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>('add_stamp');
 
-  // Cashier Mode (Manager PIN lock)
+  // Cashier Mode (Manager PIN & Password lock)
   const [cashierMode, setCashierMode] = useState<boolean>(false);
   const [cashierPin, setCashierPin] = useState<string>('1234');
   const [unlockModalVisible, setUnlockModalVisible] = useState<boolean>(false);
   const [enteredPin, setEnteredPin] = useState<string>('');
+  const [unlockLoading, setUnlockLoading] = useState<boolean>(false);
 
-  // Load Cashier Mode & PIN from storage
+  // Load Cashier Mode, locked shop, and PIN from persistent storage on startup
   useEffect(() => {
-    AsyncStorage.getItem('stampup_cashier_mode').then((val) => {
-      if (val === 'true') setCashierMode(true);
-    });
-    AsyncStorage.getItem('stampup_cashier_pin').then((val) => {
-      if (val) setCashierPin(val);
-    });
+    const initCashierState = async () => {
+      try {
+        const [modeVal, shopIdVal, shopDataVal, pinVal] = await Promise.all([
+          AsyncStorage.getItem('stampup_cashier_mode'),
+          AsyncStorage.getItem('stampup_cashier_shop_id'),
+          AsyncStorage.getItem('stampup_cashier_shop_data'),
+          AsyncStorage.getItem('stampup_cashier_pin'),
+        ]);
+
+        if (pinVal) {
+          setCashierPin(pinVal);
+        }
+
+        if (modeVal === 'true') {
+          setCashierMode(true);
+          setActiveTab('add_stamp');
+          if (shopDataVal) {
+            try {
+              const cachedShop = JSON.parse(shopDataVal) as Shop;
+              if (cachedShop && cachedShop.id) {
+                setActiveShop(cachedShop);
+                setShops((prev) => (prev.length === 0 ? [cachedShop] : prev));
+                setLoading(false);
+                setShopLoading(false);
+              }
+            } catch (e) {
+              console.error('Error parsing cached cashier shop data:', e);
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Error initializing cashier mode state:', err);
+      }
+    };
+
+    initCashierState();
   }, []);
+
+  // Prevent Android hardware back button bypass when locked in Cashier Mode
+  useEffect(() => {
+    if (!cashierMode) return;
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (unlockModalVisible) {
+        setUnlockModalVisible(false);
+        setEnteredPin('');
+      }
+      return true; // Strictly intercept back press
+    });
+    return () => backHandler.remove();
+  }, [cashierMode, unlockModalVisible]);
 
   // Load all shops owned by current user
   const loadUserShops = async (userId: string) => {
@@ -70,6 +115,20 @@ export default function App() {
       } else if (data && data.length > 0) {
         const loadedShops = data as Shop[];
         setShops(loadedShops);
+
+        // Check if Cashier Mode is locked to a specific shop
+        const isCashier = (await AsyncStorage.getItem('stampup_cashier_mode')) === 'true';
+        const cashierShopId = await AsyncStorage.getItem('stampup_cashier_shop_id');
+
+        if (isCashier && cashierShopId) {
+          const lockedShop = loadedShops.find((s) => s.id === cashierShopId);
+          if (lockedShop) {
+            setActiveShop(lockedShop);
+            await AsyncStorage.setItem('stampup_cashier_shop_data', JSON.stringify(lockedShop));
+            return;
+          }
+        }
+
         // Default to first shop or keep current if valid
         setActiveShop((prev) => {
           if (prev) {
@@ -115,14 +174,19 @@ export default function App() {
     // 2. Listen for auth changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
       setSession(session);
       if (session?.user) {
         loadUserShops(session.user.id);
-      } else {
+      } else if (event === 'SIGNED_OUT') {
         setShops([]);
         setActiveShop(null);
         setCashierMode(false);
+        await AsyncStorage.multiRemove([
+          'stampup_cashier_mode',
+          'stampup_cashier_shop_id',
+          'stampup_cashier_shop_data',
+        ]);
       }
       setLoading(false);
     });
@@ -133,28 +197,66 @@ export default function App() {
     };
   }, []);
 
-  // Enter Cashier Mode
+  // Enter Cashier Mode - Permanently persists for this shop even across restarts
   const handleEnterCashierMode = async () => {
+    if (!activeShop) return;
     setCashierMode(true);
     setActiveTab('add_stamp');
     await AsyncStorage.setItem('stampup_cashier_mode', 'true');
+    await AsyncStorage.setItem('stampup_cashier_shop_id', activeShop.id);
+    await AsyncStorage.setItem('stampup_cashier_shop_data', JSON.stringify(activeShop));
     Alert.alert(
       'Cashier Mode Active 🛡️',
-      'The app is now locked to the Add Stamp screen. Tap "Manager Unlock" at the top to exit.'
+      `Locked to "${activeShop.name}". The app will remain locked in Cashier Mode even across app restarts and device reboots until unlocked with the Manager PIN or password.`
     );
   };
 
-  // Exit Cashier Mode via PIN
+  // Exit Cashier Mode via PIN or Account Password
   const handleUnlockCashierMode = async () => {
-    if (enteredPin === cashierPin) {
+    const input = enteredPin.trim();
+    if (!input) return;
+
+    // Check 1: 4-digit Manager PIN
+    if (input === cashierPin) {
       setCashierMode(false);
       setUnlockModalVisible(false);
       setEnteredPin('');
-      await AsyncStorage.setItem('stampup_cashier_mode', 'false');
-    } else {
-      Alert.alert('Incorrect PIN', 'The Manager PIN you entered is incorrect.');
-      setEnteredPin('');
+      await AsyncStorage.multiRemove([
+        'stampup_cashier_mode',
+        'stampup_cashier_shop_id',
+        'stampup_cashier_shop_data',
+      ]);
+      return;
     }
+
+    // Check 2: Account Password if logged in
+    if (session?.user?.email) {
+      setUnlockLoading(true);
+      try {
+        const { error } = await supabase.auth.signInWithPassword({
+          email: session.user.email,
+          password: input,
+        });
+        if (!error) {
+          setCashierMode(false);
+          setUnlockModalVisible(false);
+          setEnteredPin('');
+          await AsyncStorage.multiRemove([
+            'stampup_cashier_mode',
+            'stampup_cashier_shop_id',
+            'stampup_cashier_shop_data',
+          ]);
+          return;
+        }
+      } catch (e) {
+        console.error('Password check error in unlock:', e);
+      } finally {
+        setUnlockLoading(false);
+      }
+    }
+
+    Alert.alert('Incorrect PIN or Password', 'Please enter your valid 4-digit Manager PIN or account password to unlock.');
+    setEnteredPin('');
   };
 
   // Update Manager PIN
@@ -293,18 +395,18 @@ export default function App() {
             <View style={styles.unlockModalCard}>
               <Text style={styles.unlockModalTitle}>🔐 Manager Unlock</Text>
               <Text style={styles.unlockModalSubtitle}>
-                Enter your 4-digit Manager PIN to exit Cashier Mode and access settings:
+                Enter your 4-digit Manager PIN or account password to exit Cashier Mode:
               </Text>
 
               <TextInput
                 style={styles.unlockPinInput}
-                placeholder="••••"
+                placeholder="PIN or Password"
                 placeholderTextColor="#9CA3AF"
                 value={enteredPin}
-                onChangeText={(t) => setEnteredPin(t.replace(/[^0-9]/g, '').slice(0, 4))}
-                keyboardType="numeric"
-                secureTextEntry
-                maxLength={4}
+                onChangeText={(t) => setEnteredPin(t)}
+                secureTextEntry={true}
+                autoCapitalize="none"
+                autoCorrect={false}
                 autoFocus={true}
               />
 
@@ -315,15 +417,21 @@ export default function App() {
                     setUnlockModalVisible(false);
                     setEnteredPin('');
                   }}
+                  disabled={unlockLoading}
                 >
                   <Text style={styles.cancelUnlockBtnText}>Cancel</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={styles.confirmUnlockBtn}
+                  style={[styles.confirmUnlockBtn, (!enteredPin.trim() || unlockLoading) && { opacity: 0.6 }]}
                   onPress={handleUnlockCashierMode}
+                  disabled={!enteredPin.trim() || unlockLoading}
                 >
-                  <Text style={styles.confirmUnlockBtnText}>Unlock</Text>
+                  {unlockLoading ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <Text style={styles.confirmUnlockBtnText}>Unlock</Text>
+                  )}
                 </TouchableOpacity>
               </View>
             </View>
@@ -420,13 +528,13 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#2563EB',
     borderRadius: 12,
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingVertical: 12,
-    fontSize: 28,
-    fontWeight: '800',
-    letterSpacing: 8,
+    fontSize: 20,
+    fontWeight: '700',
     textAlign: 'center',
-    width: 140,
+    width: '100%',
+    maxWidth: 240,
     marginBottom: 24,
     color: '#111827',
   },

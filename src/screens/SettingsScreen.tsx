@@ -21,6 +21,7 @@ import {
   Switch,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
 import { strings } from '../constants/strings';
 import { APP_CONFIG } from '../constants/config';
@@ -153,32 +154,72 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     }
   };
 
-  // Delete Account Handler
+  // Delete Account State (Password & PIN Protected)
+  const [deleteAccountModalVisible, setDeleteAccountModalVisible] = useState<boolean>(false);
+  const [deleteAuthInput, setDeleteAuthInput] = useState<string>('');
+  const [deleteAuthError, setDeleteAuthError] = useState<string | null>(null);
+  const [deletingAccount, setDeletingAccount] = useState<boolean>(false);
+
+  // Trigger Delete Account Modal
   const handleDeleteAccount = () => {
-    Alert.alert(
-      "Delete Account",
-      "Are you sure you want to permanently delete your account and all associated data? This action cannot be undone.",
-      [
-        { text: "Cancel", style: "cancel" },
-        { 
-          text: "Delete", 
-          style: "destructive",
-          onPress: async () => {
-            setLoading(true);
-            try {
-              const { error } = await supabase.rpc('delete_user_account');
-              if (error) throw error;
-              await supabase.auth.signOut();
-              onLogout();
-            } catch (error: any) {
-              Alert.alert("Error", error.message || "Could not delete account.");
-            } finally {
-              setLoading(false);
-            }
-          }
+    setDeleteAuthInput('');
+    setDeleteAuthError(null);
+    setDeleteAccountModalVisible(true);
+  };
+
+  // Confirm and Execute Account Deletion with Password / Manager PIN Verification
+  const handleConfirmDeleteAccount = async () => {
+    const trimmedInput = deleteAuthInput.trim();
+    if (!trimmedInput) {
+      setDeleteAuthError('Please enter your account password or Manager PIN.');
+      return;
+    }
+
+    setDeletingAccount(true);
+    setDeleteAuthError(null);
+
+    try {
+      let authorized = false;
+
+      // 1. Verify 4-digit Manager PIN
+      if (trimmedInput === cashierPin) {
+        authorized = true;
+      } else {
+        // 2. Verify Supabase account password
+        const { error: authErr } = await supabase.auth.signInWithPassword({
+          email: userEmail.trim().toLowerCase(),
+          password: trimmedInput,
+        });
+        if (!authErr) {
+          authorized = true;
         }
-      ]
-    );
+      }
+
+      if (!authorized) {
+        setDeleteAuthError('Incorrect password or Manager PIN. Deletion not authorized.');
+        setDeletingAccount(false);
+        return;
+      }
+
+      // 3. Execute Account Deletion RPC
+      const { error: rpcError } = await supabase.rpc('delete_user_account');
+      if (rpcError) throw rpcError;
+
+      // 4. Clear cashier and active shop data
+      await AsyncStorage.multiRemove([
+        'stampup_cashier_mode',
+        'stampup_cashier_shop_id',
+        'stampup_cashier_shop_data',
+      ]);
+
+      await supabase.auth.signOut();
+      setDeleteAccountModalVisible(false);
+      onLogout();
+    } catch (error: any) {
+      setDeleteAuthError(error.message || 'Could not delete account. Please try again.');
+    } finally {
+      setDeletingAccount(false);
+    }
   };
 
   // Sync state if active shop changes
@@ -1178,6 +1219,98 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         onSelectCountry={setSelectedCountry}
         onClose={() => setCountryModalVisible(false)}
       />
+
+      {/* -------------------------------------------------------- */}
+      {/* MODAL: DELETE ACCOUNT (PASSWORD / PIN PROTECTED) */}
+      {/* -------------------------------------------------------- */}
+      <Modal
+        visible={deleteAccountModalVisible}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => {
+          if (!deletingAccount) {
+            setDeleteAccountModalVisible(false);
+            setDeleteAuthInput('');
+            setDeleteAuthError(null);
+          }
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContainer, { maxWidth: 380, borderColor: '#FCA5A5', borderWidth: 1.5 }]}>
+            <ScrollView contentContainerStyle={styles.modalContent} showsVerticalScrollIndicator={false}>
+              <View style={{ alignItems: 'center', marginBottom: 12 }}>
+                <Text style={{ fontSize: 36, marginBottom: 8 }}>⚠️</Text>
+                <Text style={[styles.modalTitle, { color: '#DC2626', textAlign: 'center' }]}>
+                  Delete Account
+                </Text>
+                <Text style={[styles.modalSubtitle, { textAlign: 'center', color: '#64748B', marginTop: 4 }]}>
+                  This action is permanent and cannot be undone. All your shops, customer stamp cards, and loyalty data will be permanently wiped.
+                </Text>
+              </View>
+
+              <View style={{ backgroundColor: '#FEF2F2', borderColor: '#FECACA', borderWidth: 1, borderRadius: 12, padding: 12, marginBottom: 16 }}>
+                <Text style={{ color: '#991B1B', fontSize: 12, fontWeight: '700', marginBottom: 2 }}>
+                  🔒 PASSWORD PROTECTED
+                </Text>
+                <Text style={{ color: '#7F1D1D', fontSize: 12, lineHeight: 16 }}>
+                  Enter your StampUp account password or your 4-digit Manager PIN to confirm permanent account deletion.
+                </Text>
+              </View>
+
+              <Text style={styles.inputLabel}>Account Password or Manager PIN:</Text>
+              <TextInput
+                style={[styles.input, { borderColor: deleteAuthError ? '#EF4444' : '#E2E8F0', fontSize: 16 }]}
+                placeholder="Enter password or PIN"
+                placeholderTextColor="#94A3B8"
+                value={deleteAuthInput}
+                onChangeText={(text) => {
+                  setDeleteAuthInput(text);
+                  if (deleteAuthError) setDeleteAuthError(null);
+                }}
+                secureTextEntry={true}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+
+              {deleteAuthError ? (
+                <View style={[styles.errorBox, { marginTop: 4, marginBottom: 14 }]}>
+                  <Text style={styles.errorText}>{deleteAuthError}</Text>
+                </View>
+              ) : null}
+
+              <TouchableOpacity
+                style={[
+                  styles.primaryButton,
+                  { backgroundColor: '#DC2626', marginTop: 8 },
+                  (!deleteAuthInput.trim() || deletingAccount) && { opacity: 0.6 }
+                ]}
+                onPress={handleConfirmDeleteAccount}
+                disabled={!deleteAuthInput.trim() || deletingAccount}
+                activeOpacity={0.7}
+              >
+                {deletingAccount ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <Text style={styles.primaryButtonText}>Permanently Delete Account</Text>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.closeModalButton, { marginTop: 10 }]}
+                onPress={() => {
+                  setDeleteAccountModalVisible(false);
+                  setDeleteAuthInput('');
+                  setDeleteAuthError(null);
+                }}
+                disabled={deletingAccount}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.closeModalButtonText}>Cancel</Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
