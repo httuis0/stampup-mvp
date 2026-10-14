@@ -52,6 +52,7 @@ import {
   StampThemeOption,
   DEFAULT_THEME,
 } from '../utils/shopTheme';
+import { addNotification } from '../utils/notifications';
 import type { Shop, Customer, StampRequest } from '../types';
 
 interface AddStampScreenProps {
@@ -226,7 +227,18 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({ shop }) => {
       });
 
       if (!error && data && data.requests) {
-        setPendingRequests(data.requests as StampRequest[]);
+        const reqs = data.requests as StampRequest[];
+        // Send notification for each incoming counter request
+        reqs.forEach((r) => {
+          addNotification({
+            shopId: shop.id,
+            type: 'request',
+            title: '🔔 Counter Stamp Request',
+            message: `Customer ${formatPhoneForDisplay(r.phone)} is at the counter requesting a stamp.`,
+            metadata: { requestId: r.id, phone: r.phone },
+          });
+        });
+        setPendingRequests(reqs);
       }
     } catch (e) {}
   };
@@ -298,6 +310,12 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({ shop }) => {
       if (res.synced > 0) {
         setSyncFeedback(`✓ Auto-synced ${res.synced} offline stamp${res.synced > 1 ? 's' : ''} to cloud!`);
         setTimeout(() => setSyncFeedback(null), 4000);
+        addNotification({
+          shopId: shop.id,
+          type: 'offline_sync',
+          title: '📴 Offline Stamps Synced',
+          message: `Uploaded ${res.synced} offline stamp${res.synced > 1 ? 's' : ''} to Supabase cloud!`,
+        });
         fetchRecentCustomers();
       }
     });
@@ -308,6 +326,12 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({ shop }) => {
         if (res.synced > 0) {
           setSyncFeedback(`✓ Auto-synced ${res.synced} offline stamp${res.synced > 1 ? 's' : ''} to cloud!`);
           setTimeout(() => setSyncFeedback(null), 4000);
+          addNotification({
+            shopId: shop.id,
+            type: 'offline_sync',
+            title: '📴 Offline Stamps Synced',
+            message: `Uploaded ${res.synced} offline stamp${res.synced > 1 ? 's' : ''} to Supabase cloud!`,
+          });
           fetchRecentCustomers();
         }
       });
@@ -445,6 +469,14 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({ shop }) => {
         playStampFeedback();
         setTodayStampsCount((prev) => prev + 1);
 
+        addNotification({
+          shopId: shop.id,
+          type: 'stamp',
+          title: '☕ Stamp Awarded',
+          message: `+1 stamp added for ${formatPhoneForDisplay(normalizedPhone)} (${data.current_stamps}/${data.stamps_required})`,
+          metadata: { phone: normalizedPhone, stamps: data.current_stamps },
+        });
+
         // Activate 30-second Undo
         setLastAction({
           phone: normalizedPhone,
@@ -465,6 +497,14 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({ shop }) => {
 
         playRewardFeedback();
         setTodayStampsCount((prev) => prev + 1);
+
+        addNotification({
+          shopId: shop.id,
+          type: 'reward',
+          title: '🎉 Card Full & Reward Ready!',
+          message: `Customer ${formatPhoneForDisplay(normalizedPhone)} collected ${data.stamps_required}/${data.stamps_required} stamps and earned a free ${shop.reward_text}!`,
+          metadata: { phone: normalizedPhone, stamps: data.stamps_required },
+        });
 
         setLastAction({
           phone: normalizedPhone,
@@ -533,6 +573,15 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({ shop }) => {
 
       if (data.status === 'ok') {
         playRewardFeedback();
+
+        addNotification({
+          shopId: shop.id,
+          type: 'reward',
+          title: '🎁 Free Reward Redeemed',
+          message: `Free ${shop.reward_text} redeemed for ${formatPhoneForDisplay(validation.normalized)}. Card stamps reset to 0.`,
+          metadata: { phone: validation.normalized },
+        });
+
         Alert.alert(
           '🎉 Free Reward Given!',
           `Reward redeemed successfully for ${formatPhoneForDisplay(validation.normalized)}. Card stamps reset to 0.`

@@ -29,6 +29,14 @@ import { SettingsScreen } from './src/screens/SettingsScreen';
 import { BottomTabBar, TabType } from './src/components/BottomTabBar';
 import { strings } from './src/constants/strings';
 import type { Shop } from './src/types';
+import {
+  AppNotification,
+  subscribeToNotifications,
+  syncRecentActivityToNotifications,
+  addNotification,
+} from './src/utils/notifications';
+import { NotificationBanner } from './src/components/NotificationBanner';
+import { NotificationCenterModal } from './src/components/NotificationCenterModal';
 
 export default function App() {
   const [session, setSession] = useState<Session | null>(null);
@@ -46,6 +54,20 @@ export default function App() {
   const [unlockModalVisible, setUnlockModalVisible] = useState<boolean>(false);
   const [enteredPin, setEnteredPin] = useState<string>('');
   const [unlockLoading, setUnlockLoading] = useState<boolean>(false);
+
+  // In-App Notifications
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [notificationModalVisible, setNotificationModalVisible] = useState<boolean>(false);
+
+  // Subscribe to notifications for active shop
+  useEffect(() => {
+    if (!activeShop) return;
+    const unsubscribe = subscribeToNotifications(activeShop.id, setNotifications);
+    syncRecentActivityToNotifications(activeShop.id, activeShop.name, activeShop.reward_text);
+    return () => unsubscribe();
+  }, [activeShop?.id]);
+
+  const unreadNotifCount = notifications.filter((n) => !n.read).length;
 
   // Load Cashier Mode, locked shop, and PIN from persistent storage on startup
   useEffect(() => {
@@ -205,6 +227,14 @@ export default function App() {
     await AsyncStorage.setItem('stampup_cashier_mode', 'true');
     await AsyncStorage.setItem('stampup_cashier_shop_id', activeShop.id);
     await AsyncStorage.setItem('stampup_cashier_shop_data', JSON.stringify(activeShop));
+
+    addNotification({
+      shopId: activeShop.id,
+      type: 'security',
+      title: '🛡️ Cashier Mode Enabled',
+      message: `App locked to "${activeShop.name}" with Manager PIN protection.`,
+    });
+
     Alert.alert(
       'Cashier Mode Active 🛡️',
       `Locked to "${activeShop.name}". The app will remain locked in Cashier Mode even across app restarts and device reboots until unlocked with the Manager PIN or password.`
@@ -226,6 +256,15 @@ export default function App() {
         'stampup_cashier_shop_id',
         'stampup_cashier_shop_data',
       ]);
+
+      if (activeShop) {
+        addNotification({
+          shopId: activeShop.id,
+          type: 'security',
+          title: '🔓 Cashier Mode Unlocked',
+          message: 'Manager PIN verified. Full manager access restored.',
+        });
+      }
       return;
     }
 
@@ -246,6 +285,15 @@ export default function App() {
             'stampup_cashier_shop_id',
             'stampup_cashier_shop_data',
           ]);
+
+          if (activeShop) {
+            addNotification({
+              shopId: activeShop.id,
+              type: 'security',
+              title: '🔓 Cashier Mode Unlocked',
+              message: 'Account password verified. Full manager access restored.',
+            });
+          }
           return;
         }
       } catch (e) {
@@ -263,6 +311,16 @@ export default function App() {
   const handleUpdatePin = async (newPin: string) => {
     setCashierPin(newPin);
     await AsyncStorage.setItem('stampup_cashier_pin', newPin);
+
+    if (activeShop) {
+      addNotification({
+        shopId: activeShop.id,
+        type: 'security',
+        title: '🔑 Manager PIN Updated',
+        message: 'The 4-digit manager security PIN was updated successfully.',
+      });
+    }
+
     Alert.alert('PIN Updated', 'Your 4-digit Manager PIN was saved.');
   };
 
@@ -325,6 +383,9 @@ export default function App() {
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <StatusBar style="dark" />
 
+        {/* IN-APP FLOATING NOTIFICATION BANNER */}
+        <NotificationBanner onPressBanner={() => setNotificationModalVisible(true)} />
+
         {/* ---------------------------------------------------- */}
         {/* CASHIER MODE TOP BAR */}
         {/* ---------------------------------------------------- */}
@@ -334,6 +395,18 @@ export default function App() {
               <Text style={styles.cashierBadgeText}>🛡️ CASHIER MODE</Text>
               <Text style={styles.cashierShopName}>{activeShop.name}</Text>
             </View>
+            <TouchableOpacity
+              style={styles.cashierNotifBtn}
+              onPress={() => setNotificationModalVisible(true)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.cashierNotifIcon}>🔔</Text>
+              {unreadNotifCount > 0 && (
+                <View style={styles.cashierNotifBadge}>
+                  <Text style={styles.cashierNotifBadgeText}>{unreadNotifCount}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
             <TouchableOpacity
               style={styles.unlockBtn}
               onPress={() => setUnlockModalVisible(true)}
@@ -437,6 +510,37 @@ export default function App() {
             </View>
           </View>
         </Modal>
+
+        {/* FLOATING NOTIFICATION BELL (Manager Mode) */}
+        {!cashierMode && (
+          <TouchableOpacity
+            style={styles.floatingNotifBtn}
+            onPress={() => setNotificationModalVisible(true)}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.floatingNotifIcon}>🔔</Text>
+            {unreadNotifCount > 0 && (
+              <View style={styles.floatingNotifBadge}>
+                <Text style={styles.floatingNotifBadgeText}>
+                  {unreadNotifCount > 9 ? '9+' : unreadNotifCount}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        )}
+
+        {/* NOTIFICATION CENTER MODAL */}
+        {activeShop && (
+          <NotificationCenterModal
+            visible={notificationModalVisible}
+            shopId={activeShop.id}
+            notifications={notifications}
+            onClose={() => setNotificationModalVisible(false)}
+            onRequestSelect={() => {
+              setActiveTab('add_stamp');
+            }}
+          />
+        )}
       </SafeAreaView>
     </SafeAreaProvider>
   );
@@ -481,6 +585,36 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
   },
+  cashierNotifBtn: {
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+    position: 'relative',
+  },
+  cashierNotifIcon: {
+    fontSize: 16,
+  },
+  cashierNotifBadge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    backgroundColor: '#EF4444',
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 3,
+  },
+  cashierNotifBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: '800',
+  },
   unlockBtn: {
     backgroundColor: '#2563EB',
     paddingHorizontal: 12,
@@ -491,6 +625,45 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '700',
+  },
+  floatingNotifBtn: {
+    position: 'absolute',
+    bottom: 84,
+    right: 18,
+    backgroundColor: '#0F172A',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 8,
+    zIndex: 9999,
+  },
+  floatingNotifIcon: {
+    fontSize: 20,
+  },
+  floatingNotifBadge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    backgroundColor: '#EF4444',
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
+  },
+  floatingNotifBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '800',
   },
   tabContentContainer: {
     flex: 1,
