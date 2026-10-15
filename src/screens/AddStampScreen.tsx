@@ -18,6 +18,7 @@ import {
   Alert,
   Modal,
   Linking,
+  Image,
 } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { strings } from '../constants/strings';
@@ -825,9 +826,13 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({
         <View style={styles.topHeader}>
           <View style={styles.headerBrandContainer}>
             <View style={styles.shopAvatar}>
-              <Text style={styles.shopAvatarText}>
-                {shop.name ? shop.name.slice(0, 1).toUpperCase() : '🏪'}
-              </Text>
+              {shop.logo_url ? (
+                <Image source={{ uri: shop.logo_url }} style={styles.shopAvatarImage} resizeMode="cover" />
+              ) : (
+                <Text style={styles.shopAvatarText}>
+                  {shop.name ? shop.name.slice(0, 1).toUpperCase() : '🏪'}
+                </Text>
+              )}
             </View>
             <View style={styles.headerTitles}>
               <Text style={styles.shopNameText} numberOfLines={1}>
@@ -1640,6 +1645,11 @@ const styles = StyleSheet.create({
     borderColor: '#BFDBFE',
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  shopAvatarImage: {
+    width: '100%',
+    height: '100%',
   },
   shopAvatarText: {
     fontSize: 18,

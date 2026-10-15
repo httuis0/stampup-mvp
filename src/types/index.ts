@@ -17,6 +17,9 @@ export interface Shop {
   longitude?: number | null;
   google_maps_url?: string | null;
   stamp_icon?: string | null;
+  logo_url?: string | null;
+  api_key?: string | null;
+  pos_terminal_code?: string | null;
   created_at: string;
 }
 

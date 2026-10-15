@@ -875,6 +875,9 @@
   <div class="container">
     <!-- Header -->
     <div class="header">
+      <div id="shopLogoContainer" style="display: none; margin-bottom: 12px;">
+        <img id="shopLogoImg" src="" alt="Shop Logo" style="width: 76px; height: 76px; border-radius: 22px; object-fit: cover; box-shadow: 0 4px 16px rgba(0,0,0,0.1); border: 2.5px solid #FFFFFF;" />
+      </div>
       <div class="brand-pill">
         <span class="brand-dot"></span>
         <span>Digital Loyalty Card</span>
@@ -978,6 +981,7 @@
               <div class="customer-pill">
                 <span>👤</span>
                 <span id="greetingName">Loyalty Member</span>
+                <span id="memberTierBadge" style="display: none; font-size: 11px; font-weight: 800; padding: 2px 7px; border-radius: 10px; margin-left: 4px; border: 1px solid #E2E8F0;">VIP</span>
               </div>
               <button type="button" class="flip-card-toggle" onclick="toggleCardFlip()" aria-label="View Member Barcode">
                 <span>Barcode ↻</span>
@@ -1028,12 +1032,17 @@
           <div class="card-face-back">
             <div>
               <div style="display: flex; justify-content: space-between; align-items: center;">
-                <div class="card-back-title">DIGITAL MEMBERSHIP PASS</div>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                  <img id="cardBackLogo" src="" alt="Logo" style="width: 32px; height: 32px; border-radius: 9px; object-fit: cover; display: none; border: 1.5px solid rgba(255,255,255,0.25);" />
+                  <div>
+                    <div class="card-back-title">DIGITAL MEMBERSHIP PASS</div>
+                    <div class="card-back-member" id="cardBackMemberName">Loyalty Member</div>
+                  </div>
+                </div>
                 <button type="button" class="flip-card-toggle" style="background: rgba(255,255,255,0.12); color: #93C5FD; border-color: #475569;" onclick="toggleCardFlip()">
                   <span>Front ↻</span>
                 </button>
               </div>
-              <div class="card-back-member" id="cardBackMemberName">Loyalty Member</div>
             </div>
 
             <div class="barcode-container">
@@ -1401,6 +1410,20 @@
             shopNameEl.textContent = data.shop_name;
             rewardText.textContent = `🎁 Free ${data.reward_text} at ${data.stamps_required} stamps`;
             document.title = `${data.shop_name} - Loyalty Card`;
+
+            if (data.logo_url) {
+              const logoCont = document.getElementById('shopLogoContainer');
+              const logoImg = document.getElementById('shopLogoImg');
+              if (logoCont && logoImg) {
+                logoImg.src = data.logo_url;
+                logoCont.style.display = 'block';
+              }
+              const backLogo = document.getElementById('cardBackLogo');
+              if (backLogo) {
+                backLogo.src = data.logo_url;
+                backLogo.style.display = 'block';
+              }
+            }
 
             if (data.shop_number || data.address || data.google_maps_url) {
               const metaCont = document.getElementById('shopMetaContainer');
@@ -1770,6 +1793,45 @@
         if (cardBackName) cardBackName.textContent = name;
       } else {
         if (greetingName) greetingName.textContent = 'Loyalty Member';
+      }
+
+      // Handle VIP Loyalty Tier Badge
+      const tierBadge = document.getElementById('memberTierBadge');
+      if (tierBadge) {
+        if (cur >= total) {
+          tierBadge.textContent = '🥇 Gold VIP';
+          tierBadge.style.background = '#FEF3C7';
+          tierBadge.style.color = '#B45309';
+          tierBadge.style.borderColor = '#FDE68A';
+          tierBadge.style.display = 'inline-block';
+        } else if (cur >= Math.ceil(total / 2)) {
+          tierBadge.textContent = '🥈 Silver Member';
+          tierBadge.style.background = '#F1F5F9';
+          tierBadge.style.color = '#475569';
+          tierBadge.style.borderColor = '#CBD5E1';
+          tierBadge.style.display = 'inline-block';
+        } else {
+          tierBadge.textContent = '🥉 Bronze Member';
+          tierBadge.style.background = '#FFFBEB';
+          tierBadge.style.color = '#92400E';
+          tierBadge.style.borderColor = '#FDE68A';
+          tierBadge.style.display = 'inline-block';
+        }
+      }
+
+      // Sync Logo on Customer Pass
+      if (data.logo_url) {
+        const logoCont = document.getElementById('shopLogoContainer');
+        const logoImg = document.getElementById('shopLogoImg');
+        if (logoCont && logoImg) {
+          logoImg.src = data.logo_url;
+          logoCont.style.display = 'block';
+        }
+        const backLogo = document.getElementById('cardBackLogo');
+        if (backLogo) {
+          backLogo.src = data.logo_url;
+          backLogo.style.display = 'block';
+        }
       }
 
       stampCountText.textContent = `${cur} of ${total} stamps`;

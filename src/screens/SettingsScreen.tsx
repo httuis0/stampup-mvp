@@ -19,6 +19,7 @@ import {
   Platform,
   Share,
   Switch,
+  Image,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -30,6 +31,12 @@ import { CountryPickerModal } from '../components/CountryPickerModal';
 import { Country, findCountryByDialCode } from '../utils/countries';
 import { GoogleMapPicker } from '../components/GoogleMapPicker';
 import { generateShopSlug } from '../utils/slug';
+import { pickAndUploadShopLogo, removeShopLogo } from '../utils/shopLogo';
+import {
+  regenerateApiKey,
+  refreshTerminalCode,
+  getPosWebhookUrl,
+} from '../utils/posIntegrations';
 import {
   getSoundEnabled,
   getHapticsEnabled,
@@ -47,7 +54,7 @@ import {
 } from '../utils/shopTheme';
 import type { Shop } from '../types';
 
-type SettingsTab = 'shop' | 'region' | 'security' | 'qr' | 'account';
+type SettingsTab = 'shop' | 'region' | 'security' | 'pos' | 'qr' | 'account';
 
 interface SettingsScreenProps {
   shop: Shop;
@@ -272,6 +279,178 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   const customerWebBase =
     process.env.EXPO_PUBLIC_CUSTOMER_WEB_URL || 'https://stampup-cards.vercel.app';
   const customerLink = `${customerWebBase.replace(/\/+$/, '')}/c/${slug}`;
+
+  // Logo Upload and Removal State & Handlers
+  const [uploadingLogo, setUploadingLogo] = useState<boolean>(false);
+
+  const handlePickLogo = async () => {
+    setUploadingLogo(true);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    try {
+      const res = await pickAndUploadShopLogo(shop.id);
+      if (res.success && res.logoUrl) {
+        onShopUpdated({ ...shop, logo_url: res.logoUrl });
+        setSuccessMessage('Shop logo updated and synchronized across all cashier devices and customer cards!');
+      } else if (res.error) {
+        setErrorMessage(res.error);
+      }
+    } catch (err: any) {
+      setErrorMessage(err?.message || 'Failed to upload logo.');
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
+  const handleRemoveLogo = async () => {
+    Alert.alert(
+      'Remove Shop Logo',
+      'Are you sure you want to remove your shop logo?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: async () => {
+            setUploadingLogo(true);
+            const success = await removeShopLogo(shop.id);
+            setUploadingLogo(false);
+            if (success) {
+              onShopUpdated({ ...shop, logo_url: null });
+              setSuccessMessage('Shop logo removed.');
+            } else {
+              setErrorMessage('Could not remove logo.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  // POS & External API Integrations State & Handlers
+  const [posApiKey, setPosApiKey] = useState<string>(shop.api_key || '');
+  const [posTerminalCode, setPosTerminalCode] = useState<string>(shop.pos_terminal_code || '');
+  const [showApiKey, setShowApiKey] = useState<boolean>(false);
+  const [posLoading, setPosLoading] = useState<boolean>(false);
+  const [testPosPhone, setTestPosPhone] = useState<string>('');
+  const [testPosLoading, setTestPosLoading] = useState<boolean>(false);
+  const [posTestResult, setPosTestResult] = useState<{ success: boolean; message: string } | null>(null);
+
+  // Load or generate initial POS data when opening POS tab
+  const loadPosDetails = async () => {
+    setPosLoading(true);
+    try {
+      const { data } = await supabase
+        .from('shops')
+        .select('api_key, pos_terminal_code')
+        .eq('id', shop.id)
+        .single();
+
+      let activeKey = data?.api_key || posApiKey;
+      let activeCode = data?.pos_terminal_code || posTerminalCode;
+
+      if (!activeKey) {
+        const generatedKey = await regenerateApiKey(shop.id);
+        if (generatedKey) activeKey = generatedKey;
+      }
+      if (!activeCode) {
+        const generatedCode = await refreshTerminalCode(shop.id);
+        if (generatedCode) activeCode = generatedCode;
+      }
+
+      setPosApiKey(activeKey || '');
+      setPosTerminalCode(activeCode || '');
+    } catch (e) {
+      console.warn('Error loading POS details', e);
+    } finally {
+      setPosLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'pos') {
+      loadPosDetails();
+    }
+  }, [activeTab, shop.id]);
+
+  const handleRegenerateKey = async () => {
+    Alert.alert(
+      'Regenerate API Key',
+      'Any external Point of Sale system using the current key will be disconnected until updated. Continue?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Generate New Key',
+          style: 'destructive',
+          onPress: async () => {
+            setPosLoading(true);
+            const newKey = await regenerateApiKey(shop.id);
+            setPosLoading(false);
+            if (newKey) {
+              setPosApiKey(newKey);
+              setSuccessMessage('New secret POS API Key generated successfully!');
+            } else {
+              setErrorMessage('Failed to generate API Key.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleRefreshTerminalCode = async () => {
+    setPosLoading(true);
+    const newCode = await refreshTerminalCode(shop.id);
+    setPosLoading(false);
+    if (newCode) {
+      setPosTerminalCode(newCode);
+      setSuccessMessage('Fresh 6-digit Cashier Terminal Pairing Code generated!');
+    } else {
+      setErrorMessage('Failed to generate terminal code.');
+    }
+  };
+
+  const handleTestWebhook = async () => {
+    if (!testPosPhone.trim()) {
+      Alert.alert('Phone Required', 'Please enter a customer mobile number to test the POS webhook.');
+      return;
+    }
+    setTestPosLoading(true);
+    setPosTestResult(null);
+    try {
+      const { data, error } = await supabase.rpc('pos_add_stamp', {
+        p_api_key: posApiKey,
+        p_phone: testPosPhone.trim(),
+        p_amount: 15.0,
+        p_order_id: 'POS-TEST-' + Math.floor(1000 + Math.random() * 9000),
+      });
+
+      if (error) {
+        setPosTestResult({
+          success: false,
+          message: error.message || 'Webhook RPC failed',
+        });
+      } else if (data?.status === 'ok' || data?.status === 'card_full' || data?.status === 'too_soon') {
+        playStampFeedback();
+        setPosTestResult({
+          success: true,
+          message: `POS Webhook Verified! Customer received stamp (Status: ${data.status}, Stamps: ${data.current_stamps}/${data.stamps_required}).`,
+        });
+      } else {
+        setPosTestResult({
+          success: false,
+          message: data?.message || 'Unexpected response status: ' + data?.status,
+        });
+      }
+    } catch (e: any) {
+      setPosTestResult({
+        success: false,
+        message: e?.message || 'Connection test failed',
+      });
+    } finally {
+      setTestPosLoading(false);
+    }
+  };
 
   // Handle Save Shop Details
   const handleSaveShopDetails = async () => {
@@ -518,6 +697,16 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           </TouchableOpacity>
 
           <TouchableOpacity
+            style={[styles.pipelineTab, activeTab === 'pos' && styles.pipelineTabActive]}
+            onPress={() => setActiveTab('pos')}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.pipelineTabText, activeTab === 'pos' && styles.pipelineTabTextActive]}>
+              🔌 POS & API
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
             style={[styles.pipelineTab, activeTab === 'qr' && styles.pipelineTabActive]}
             onPress={() => setActiveTab('qr')}
             activeOpacity={0.7}
@@ -561,7 +750,11 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             <View style={styles.card}>
               <View style={styles.shopOverviewHeader}>
                 <View style={styles.shopAvatarSquircle}>
-                  <Text style={styles.shopAvatarText}>{getShopInitials(shop.name)}</Text>
+                  {shop.logo_url ? (
+                    <Image source={{ uri: shop.logo_url }} style={styles.shopAvatarSquircleImage} resizeMode="cover" />
+                  ) : (
+                    <Text style={styles.shopAvatarText}>{getShopInitials(shop.name)}</Text>
+                  )}
                 </View>
                 <View style={{ flex: 1 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
@@ -765,6 +958,53 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               )}
             </View>
 
+            {/* Shop Brand & Logo Card */}
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>🖼️ Shop Logo & Branding</Text>
+              <Text style={styles.cardSubtitle}>
+                Upload your official store logo. It syncs automatically across all cashier devices, counter stands, and customer digital cards.
+              </Text>
+
+              <View style={styles.logoUploadRow}>
+                <View style={styles.logoPreviewWrapper}>
+                  {shop.logo_url ? (
+                    <Image source={{ uri: shop.logo_url }} style={styles.logoPreviewImage} resizeMode="cover" />
+                  ) : (
+                    <View style={styles.logoPlaceholder}>
+                      <Text style={styles.logoPlaceholderIcon}>🏪</Text>
+                      <Text style={styles.logoPlaceholderText}>No Logo</Text>
+                    </View>
+                  )}
+                </View>
+
+                <View style={styles.logoActionsCol}>
+                  <TouchableOpacity
+                    style={[styles.primaryButton, uploadingLogo && styles.buttonDisabled, { minHeight: 44, paddingVertical: 10 }]}
+                    onPress={handlePickLogo}
+                    disabled={uploadingLogo}
+                    activeOpacity={0.7}
+                  >
+                    {uploadingLogo ? (
+                      <ActivityIndicator color="#FFFFFF" size="small" />
+                    ) : (
+                      <Text style={styles.primaryButtonText}>📸 {shop.logo_url ? 'Change Logo' : 'Upload Logo'}</Text>
+                    )}
+                  </TouchableOpacity>
+
+                  {shop.logo_url ? (
+                    <TouchableOpacity
+                      style={[styles.outlineButton, { marginTop: 8, borderColor: '#FCA5A5', minHeight: 40, paddingVertical: 8 }]}
+                      onPress={handleRemoveLogo}
+                      disabled={uploadingLogo}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.outlineButtonText, { color: '#DC2626', fontSize: 13 }]}>🗑️ Remove Logo</Text>
+                    </TouchableOpacity>
+                  ) : null}
+                </View>
+              </View>
+            </View>
+
             {/* My Branches Section */}
             <View style={styles.card}>
               <View style={styles.cardHeaderRow}>
@@ -956,6 +1196,197 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   <Text style={[styles.feedbackTestBtnText, { color: '#1D4ED8' }]}>🔔 Test Notification Sound</Text>
                 </TouchableOpacity>
               </View>
+            </View>
+          </View>
+        )}
+
+        {/* -------------------------------------------------------- */}
+        {/* TAB: POS & EXTERNAL API INTEGRATIONS */}
+        {/* -------------------------------------------------------- */}
+        {activeTab === 'pos' && (
+          <View>
+            {/* Terminal Pairing Code Card */}
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>📱 Counter Staff Terminal Code</Text>
+              <Text style={styles.cardSubtitle}>
+                Pair secondary cashier phones or counter tablets without sharing your account password or Manager PIN.
+              </Text>
+
+              <View style={styles.posCodeCard}>
+                <Text style={styles.posCodeLabel}>6-Digit Staff Terminal PIN</Text>
+                <Text style={styles.posCodeText}>
+                  {posTerminalCode
+                    ? `${posTerminalCode.slice(0, 3)} ${posTerminalCode.slice(3, 6)}`
+                    : '------'}
+                </Text>
+                <Text style={styles.posCodeExpiry}>Valid for counter cashier devices</Text>
+
+                <View style={styles.posCodeButtonsRow}>
+                  <TouchableOpacity
+                    style={styles.posCodeBtn}
+                    onPress={() => {
+                      if (posTerminalCode) {
+                        Clipboard.setStringAsync(posTerminalCode);
+                        Alert.alert('Copied!', 'Terminal code copied to clipboard.');
+                      }
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.posCodeBtnText}>📋 Copy Code</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.posCodeBtn, { backgroundColor: '#EFF6FF', borderColor: '#BFDBFE' }]}
+                    onPress={handleRefreshTerminalCode}
+                    disabled={posLoading}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.posCodeBtnText, { color: '#1D4ED8' }]}>🔄 Refresh Code</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+
+            {/* Live POS API Key Card */}
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>🔑 Secret POS API Key</Text>
+              <Text style={styles.cardSubtitle}>
+                Authenticate external POS systems (Square, Clover, Toast, Shopify POS, Loyverse, or custom in-house software) to automatically award loyalty stamps upon purchase.
+              </Text>
+
+              <View style={styles.posKeyBox}>
+                <Text style={styles.posKeyText} numberOfLines={1}>
+                  {posApiKey
+                    ? showApiKey
+                      ? posApiKey
+                      : `${posApiKey.slice(0, 10)}••••••••••••••••`
+                    : 'Generating key...'}
+                </Text>
+
+                <TouchableOpacity
+                  onPress={() => setShowApiKey(!showApiKey)}
+                  style={{ padding: 4 }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: '#2563EB' }}>
+                    {showApiKey ? 'Hide' : 'Show'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
+                <TouchableOpacity
+                  style={[styles.primaryButton, { flex: 1, minHeight: 44, paddingVertical: 10 }]}
+                  onPress={() => {
+                    if (posApiKey) {
+                      Clipboard.setStringAsync(posApiKey);
+                      Alert.alert('Copied!', 'Secret API Key copied to clipboard.');
+                    }
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.primaryButtonText}>📋 Copy API Key</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.outlineButton, { flex: 0.9, marginTop: 0, marginBottom: 0, minHeight: 44, paddingVertical: 10 }]}
+                  onPress={handleRegenerateKey}
+                  disabled={posLoading}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.outlineButtonText}>🔄 Regenerate</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Webhook & REST API Documentation Card */}
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>🌐 POS Webhook & REST Endpoint</Text>
+              <Text style={styles.cardSubtitle}>
+                Configure your POS webhook or background job to trigger an HTTP POST when a transaction is completed.
+              </Text>
+
+              <Text style={styles.inputLabel}>Endpoint URL (HTTP POST):</Text>
+              <View style={styles.posKeyBox}>
+                <Text style={[styles.posKeyText, { fontSize: 12 }]} numberOfLines={1}>
+                  {getPosWebhookUrl()}
+                </Text>
+                <TouchableOpacity
+                  onPress={() => {
+                    Clipboard.setStringAsync(getPosWebhookUrl());
+                    Alert.alert('Copied!', 'Endpoint URL copied to clipboard.');
+                  }}
+                  style={{ padding: 4 }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: '#2563EB' }}>Copy</Text>
+                </TouchableOpacity>
+              </View>
+
+              <Text style={[styles.inputLabel, { marginTop: 16 }]}>JSON Payload Example:</Text>
+              <View style={styles.posCodeSnippet}>
+                <Text style={styles.posCodeSnippetText}>
+                  {`curl -X POST "${getPosWebhookUrl()}" \\
+  -H "Content-Type: application/json" \\
+  -H "apikey: <SUPABASE_ANON_KEY>" \\
+  -d '{
+    "p_api_key": "${posApiKey ? posApiKey.slice(0, 12) + '...' : 'sp_live_xxxx'}",
+    "p_phone": "+971501234567",
+    "p_amount": 25.50,
+    "p_order_id": "ORD-1092"
+  }'`}
+                </Text>
+              </View>
+            </View>
+
+            {/* Interactive Webhook Live Test Card */}
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>🧪 Live POS Webhook Test</Text>
+              <Text style={styles.cardSubtitle}>
+                Enter a test phone number to trigger a live POS test request and verify integration.
+              </Text>
+
+              <Text style={styles.inputLabel}>Test Customer Phone:</Text>
+              <TextInput
+                style={styles.input}
+                value={testPosPhone}
+                onChangeText={setTestPosPhone}
+                placeholder="e.g. +971501234567"
+                placeholderTextColor="#94A3B8"
+                keyboardType="phone-pad"
+              />
+
+              <TouchableOpacity
+                style={[styles.primaryButton, testPosLoading && styles.buttonDisabled, { marginTop: 8 }]}
+                onPress={handleTestWebhook}
+                disabled={testPosLoading}
+                activeOpacity={0.7}
+              >
+                {testPosLoading ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <Text style={styles.primaryButtonText}>🚀 Trigger Test POS Stamp</Text>
+                )}
+              </TouchableOpacity>
+
+              {posTestResult && (
+                <View
+                  style={[
+                    styles.testResultBanner,
+                    posTestResult.success ? styles.testResultSuccess : styles.testResultError,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.testResultText,
+                      { color: posTestResult.success ? '#065F46' : '#991B1B' },
+                    ]}
+                  >
+                    {posTestResult.success ? '✓ ' : '⚠️ '}
+                    {posTestResult.message}
+                  </Text>
+                </View>
+              )}
             </View>
           </View>
         )}
@@ -2068,5 +2499,152 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#475569',
     lineHeight: 19,
+  },
+
+  /* Shop Logo Styles */
+  shopAvatarSquircleImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 16,
+  },
+  logoUploadRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    marginTop: 14,
+  },
+  logoPreviewWrapper: {
+    width: 84,
+    height: 84,
+    borderRadius: 18,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  logoPreviewImage: {
+    width: '100%',
+    height: '100%',
+  },
+  logoPlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logoPlaceholderIcon: {
+    fontSize: 28,
+    marginBottom: 2,
+  },
+  logoPlaceholderText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#94A3B8',
+  },
+  logoActionsCol: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+
+  /* POS Integration Styles */
+  posCodeCard: {
+    backgroundColor: '#F8FAFC',
+    borderColor: '#E2E8F0',
+    borderWidth: 1.5,
+    borderRadius: 16,
+    padding: 16,
+    marginTop: 12,
+    alignItems: 'center',
+  },
+  posCodeLabel: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#64748B',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: 8,
+  },
+  posCodeText: {
+    fontSize: 32,
+    fontWeight: '900',
+    color: '#2563EB',
+    letterSpacing: 6,
+  },
+  posCodeExpiry: {
+    fontSize: 11,
+    color: '#94A3B8',
+    marginTop: 4,
+    fontWeight: '600',
+  },
+  posCodeButtonsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 14,
+    width: '100%',
+  },
+  posCodeBtn: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderColor: '#CBD5E1',
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  posCodeBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#334155',
+  },
+  posKeyBox: {
+    backgroundColor: '#F8FAFC',
+    borderColor: '#CBD5E1',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginTop: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  posKeyText: {
+    fontSize: 13,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    color: '#0F172A',
+    flex: 1,
+    marginRight: 8,
+  },
+  posCodeSnippet: {
+    backgroundColor: '#0F172A',
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 10,
+  },
+  posCodeSnippetText: {
+    color: '#38BDF8',
+    fontSize: 11,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    lineHeight: 16,
+  },
+  testResultBanner: {
+    padding: 12,
+    borderRadius: 10,
+    marginTop: 12,
+  },
+  testResultSuccess: {
+    backgroundColor: '#ECFDF5',
+    borderColor: '#A7F3D0',
+    borderWidth: 1,
+  },
+  testResultError: {
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FECACA',
+    borderWidth: 1,
+  },
+  testResultText: {
+    fontSize: 13,
+    fontWeight: '700',
   },
 });

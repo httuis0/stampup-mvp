@@ -38,7 +38,14 @@
           "backgroundColor": "#173A8A"
         }
       ],
-      "expo-updates"
+      "expo-updates",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow StampUp to select your shop logo from your photos.",
+          "cameraPermission": "Allow StampUp to take a photo of your shop logo."
+        }
+      ]
     ],
     "updates": {
       "url": "https://u.expo.dev/44b91ac8-b847-422c-9849-4c257ca2723e",
