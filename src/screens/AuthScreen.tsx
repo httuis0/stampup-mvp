@@ -1,6 +1,8 @@
 // ============================================================
 // Screen 1: Login / Sign Up
 // Premium FinTech auth experience for shop managers & cashiers.
+// Includes strict email verification, "No Account Exists" auto-detection,
+// password visibility toggle, and 1-tap account creation.
 // ============================================================
 
 import React, { useState } from 'react';
@@ -22,22 +24,41 @@ interface AuthScreenProps {
   onSuccess?: () => void;
 }
 
+// RFC 5322 compliant email validator
+export const isValidEmail = (emailStr: string): boolean => {
+  const trimmed = emailStr.trim();
+  const regex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+  return regex.test(trimmed);
+};
+
 export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
   const [isLogin, setIsLogin] = useState<boolean>(true);
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
+  const [showPassword, setShowPassword] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // Smart prompt states for registered / unregistered emails
+  const [emailNotRegistered, setEmailNotRegistered] = useState<boolean>(false);
+  const [emailAlreadyRegistered, setEmailAlreadyRegistered] = useState<boolean>(false);
 
   // Validate form inputs before sending to Supabase
   const validateInputs = (): boolean => {
     setErrorMessage(null);
     setSuccessMessage(null);
+    setEmailNotRegistered(false);
+    setEmailAlreadyRegistered(false);
 
     const trimmedEmail = email.trim();
-    if (!trimmedEmail || !trimmedEmail.includes('@') || !trimmedEmail.includes('.')) {
-      setErrorMessage(strings.auth.invalidEmail);
+    if (!trimmedEmail) {
+      setErrorMessage('Please enter your email address.');
+      return false;
+    }
+
+    if (!isValidEmail(trimmedEmail)) {
+      setErrorMessage('Please enter a valid email address (e.g. owner@cafe.com).');
       return false;
     }
 
@@ -58,12 +79,29 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
     } else if (raw.includes('email not confirmed')) {
       setErrorMessage('Your email is not confirmed yet. Please check your inbox.');
     } else if (raw.includes('invalid login credentials') || raw.includes('invalid credentials')) {
-      setErrorMessage('Incorrect email or password. Please try again.');
+      setErrorMessage('Invalid email or password. If you do not have an account yet, please create one.');
+      setEmailNotRegistered(true);
     } else if (raw.includes('already registered') || raw.includes('user already exists')) {
       setErrorMessage(strings.auth.emailAlreadyUsed);
+      setEmailAlreadyRegistered(true);
     } else {
       setErrorMessage(err?.message || strings.common.error);
     }
+  };
+
+  // Check if email exists in database
+  const checkEmailExistsInDb = async (targetEmail: string): Promise<boolean | null> => {
+    try {
+      const { data, error } = await supabase.rpc('check_email_exists', {
+        p_email: targetEmail,
+      });
+      if (!error && typeof data === 'boolean') {
+        return data;
+      }
+    } catch (e) {
+      // Fallback if RPC is not deployed yet
+    }
+    return null;
   };
 
   // Handle Log In submission
@@ -72,15 +110,40 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
 
     setLoading(true);
     setErrorMessage(null);
+    setEmailNotRegistered(false);
+    setEmailAlreadyRegistered(false);
 
+    const cleanEmail = email.trim().toLowerCase();
+
+    // 1. Check if email exists
+    const exists = await checkEmailExistsInDb(cleanEmail);
+
+    if (exists === false) {
+      setLoading(false);
+      setErrorMessage(`No account found for "${cleanEmail}". Please create an account first.`);
+      setEmailNotRegistered(true);
+      return;
+    }
+
+    // 2. Attempt login
     try {
       const { error } = await supabase.auth.signInWithPassword({
-        email: email.trim().toLowerCase(),
+        email: cleanEmail,
         password,
       });
 
       if (error) {
-        handleAuthError(error);
+        const raw = (error.message || '').toLowerCase();
+        if (raw.includes('invalid login credentials') || raw.includes('invalid credentials')) {
+          if (exists === true) {
+            setErrorMessage('Incorrect password for this account. Please check your password.');
+          } else {
+            setErrorMessage('Invalid email or password. If you do not have an account, please create one.');
+            setEmailNotRegistered(true);
+          }
+        } else {
+          handleAuthError(error);
+        }
       } else {
         if (onSuccess) onSuccess();
       }
@@ -97,10 +160,25 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
 
     setLoading(true);
     setErrorMessage(null);
+    setEmailNotRegistered(false);
+    setEmailAlreadyRegistered(false);
 
+    const cleanEmail = email.trim().toLowerCase();
+
+    // 1. Check if email already exists
+    const exists = await checkEmailExistsInDb(cleanEmail);
+
+    if (exists === true) {
+      setLoading(false);
+      setErrorMessage(`An account for "${cleanEmail}" already exists. Please log in.`);
+      setEmailAlreadyRegistered(true);
+      return;
+    }
+
+    // 2. Attempt signup
     try {
       const { data, error } = await supabase.auth.signUp({
-        email: email.trim().toLowerCase(),
+        email: cleanEmail,
         password,
       });
 
@@ -109,7 +187,17 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
       } else if (data.session) {
         if (onSuccess) onSuccess();
       } else {
-        setSuccessMessage(strings.auth.accountCreatedSuccess);
+        // Attempt immediate login if auto-confirmed
+        const loginAttempt = await supabase.auth.signInWithPassword({
+          email: cleanEmail,
+          password,
+        });
+
+        if (loginAttempt.data.session) {
+          if (onSuccess) onSuccess();
+        } else {
+          setSuccessMessage(strings.auth.accountCreatedSuccess);
+        }
       }
     } catch (err: any) {
       handleAuthError(err);
@@ -131,7 +219,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
           </View>
           <Text style={styles.logo}>StampUp</Text>
           <Text style={styles.subtitle}>
-            {isLogin ? 'Sign in to access your shop POS' : 'Create your digital loyalty account'}
+            {isLogin ? 'Sign in to access your shop POS' : 'Create your digital loyalty store'}
           </Text>
         </View>
 
@@ -143,6 +231,8 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
               setIsLogin(true);
               setErrorMessage(null);
               setSuccessMessage(null);
+              setEmailNotRegistered(false);
+              setEmailAlreadyRegistered(false);
             }}
             disabled={loading}
             activeOpacity={0.7}
@@ -158,6 +248,8 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
               setIsLogin(false);
               setErrorMessage(null);
               setSuccessMessage(null);
+              setEmailNotRegistered(false);
+              setEmailAlreadyRegistered(false);
             }}
             disabled={loading}
             activeOpacity={0.7}
@@ -177,6 +269,48 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
             </View>
           )}
 
+          {/* Action Prompt: If account not found during login */}
+          {emailNotRegistered && isLogin && (
+            <View style={styles.promptCard}>
+              <Text style={styles.promptTitle}>⚡ Need an account?</Text>
+              <Text style={styles.promptSubtitle}>
+                No shop account was found for <Text style={{ fontWeight: '700' }}>{email.trim()}</Text>. You can register a new store account now:
+              </Text>
+              <TouchableOpacity
+                style={styles.promptActionBtn}
+                onPress={() => {
+                  setIsLogin(false);
+                  setEmailNotRegistered(false);
+                  setErrorMessage(null);
+                }}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.promptActionBtnText}>+ Switch to Create Account</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Action Prompt: If account already exists during signup */}
+          {emailAlreadyRegistered && !isLogin && (
+            <View style={styles.promptCard}>
+              <Text style={styles.promptTitle}>🔑 Account Already Registered</Text>
+              <Text style={styles.promptSubtitle}>
+                An account with <Text style={{ fontWeight: '700' }}>{email.trim()}</Text> is already active. Please sign in:
+              </Text>
+              <TouchableOpacity
+                style={styles.promptActionBtn}
+                onPress={() => {
+                  setIsLogin(true);
+                  setEmailAlreadyRegistered(false);
+                  setErrorMessage(null);
+                }}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.promptActionBtnText}>Sign In with this Email →</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
           {/* Success Message Box */}
           {successMessage && (
             <View style={styles.successBox}>
@@ -191,25 +325,42 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
             placeholder={strings.auth.emailPlaceholder}
             placeholderTextColor="#94A3B8"
             value={email}
-            onChangeText={setEmail}
+            onChangeText={(t) => {
+              setEmail(t);
+              if (errorMessage) setErrorMessage(null);
+              if (emailNotRegistered) setEmailNotRegistered(false);
+              if (emailAlreadyRegistered) setEmailAlreadyRegistered(false);
+            }}
             autoCapitalize="none"
             keyboardType="email-address"
             autoCorrect={false}
             editable={!loading}
           />
 
-          {/* Password Input */}
+          {/* Password Input with Visibility Toggle */}
           <Text style={styles.inputLabel}>{strings.auth.passwordLabel}</Text>
-          <TextInput
-            style={styles.input}
-            placeholder={strings.auth.passwordPlaceholder}
-            placeholderTextColor="#94A3B8"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-            autoCapitalize="none"
-            editable={!loading}
-          />
+          <View style={styles.passwordContainer}>
+            <TextInput
+              style={styles.passwordInput}
+              placeholder={strings.auth.passwordPlaceholder}
+              placeholderTextColor="#94A3B8"
+              value={password}
+              onChangeText={(t) => {
+                setPassword(t);
+                if (errorMessage) setErrorMessage(null);
+              }}
+              secureTextEntry={!showPassword}
+              autoCapitalize="none"
+              editable={!loading}
+            />
+            <TouchableOpacity
+              style={styles.passwordToggleBtn}
+              onPress={() => setShowPassword(!showPassword)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.passwordToggleText}>{showPassword ? '🙈' : '👁️'}</Text>
+            </TouchableOpacity>
+          </View>
 
           {/* Primary Action Button */}
           <TouchableOpacity
@@ -234,6 +385,8 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSuccess }) => {
               setIsLogin(!isLogin);
               setErrorMessage(null);
               setSuccessMessage(null);
+              setEmailNotRegistered(false);
+              setEmailAlreadyRegistered(false);
             }}
             disabled={loading}
           >
@@ -302,25 +455,23 @@ const styles = StyleSheet.create({
   },
   tabContainer: {
     flexDirection: 'row',
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#E2E8F0',
     borderRadius: 14,
     padding: 4,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    marginBottom: 20,
   },
   tabButton: {
     flex: 1,
     paddingVertical: 10,
-    borderRadius: 10,
     alignItems: 'center',
+    borderRadius: 10,
   },
   tabButtonActive: {
     backgroundColor: '#FFFFFF',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
     elevation: 2,
   },
   tabText: {
@@ -330,19 +481,19 @@ const styles = StyleSheet.create({
   },
   tabTextActive: {
     color: '#0F172A',
-    fontWeight: '800',
+    fontWeight: '700',
   },
   formCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 22,
-    padding: 22,
+    borderRadius: 20,
+    padding: 24,
     borderWidth: 1,
-    borderColor: '#F1F5F9',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
+    borderColor: '#E2E8F0',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 3,
+    shadowRadius: 12,
+    elevation: 2,
   },
   inputLabel: {
     fontSize: 13,
@@ -361,6 +512,29 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#0F172A',
     marginBottom: 14,
+  },
+  passwordContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderColor: '#CBD5E1',
+    borderWidth: 1.5,
+    borderRadius: 12,
+    marginBottom: 14,
+  },
+  passwordInput: {
+    flex: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 15,
+    color: '#0F172A',
+  },
+  passwordToggleBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+  passwordToggleText: {
+    fontSize: 18,
   },
   primaryButton: {
     backgroundColor: '#0F172A',
@@ -406,6 +580,39 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     textAlign: 'center',
+    lineHeight: 18,
+  },
+  promptCard: {
+    backgroundColor: '#EFF6FF',
+    borderColor: '#BFDBFE',
+    borderWidth: 1.5,
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 16,
+  },
+  promptTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#1E3A8A',
+    marginBottom: 4,
+  },
+  promptSubtitle: {
+    fontSize: 13,
+    color: '#1E40AF',
+    lineHeight: 18,
+    marginBottom: 10,
+  },
+  promptActionBtn: {
+    backgroundColor: '#2563EB',
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    alignItems: 'center',
+  },
+  promptActionBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
   },
   successBox: {
     backgroundColor: '#ECFDF5',
