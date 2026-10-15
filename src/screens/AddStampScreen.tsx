@@ -52,11 +52,20 @@ import {
   StampThemeOption,
   DEFAULT_THEME,
 } from '../utils/shopTheme';
-import { addNotification } from '../utils/notifications';
+import {
+  addNotification,
+  subscribeToNotifications,
+  AppNotification,
+} from '../utils/notifications';
+import { NotificationCenterModal } from '../components/NotificationCenterModal';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { generateShopSlug } from '../utils/slug';
 import type { Shop, Customer, StampRequest } from '../types';
 
 interface AddStampScreenProps {
   shop: Shop;
+  onOpenNotifications?: () => void;
+  unreadNotifsCount?: number;
 }
 
 interface LastActionInfo {
@@ -78,12 +87,76 @@ const sendWhatsApp = (phone: string, text: string) => {
   });
 };
 
-export const AddStampScreen: React.FC<AddStampScreenProps> = ({ shop }) => {
+export const AddStampScreen: React.FC<AddStampScreenProps> = ({
+  shop,
+  onOpenNotifications,
+  unreadNotifsCount,
+}) => {
   const [phone, setPhone] = useState<string>('');
   const [selectedCountry, setSelectedCountry] = useState<Country>(
     findCountryByDialCode(shop.default_country_code || '+971')
   );
   const [countryModalVisible, setCountryModalVisible] = useState<boolean>(false);
+
+  // Auto-WhatsApp State (Default ON as requested)
+  const [autoWhatsAppEnabled, setAutoWhatsAppEnabled] = useState<boolean>(true);
+
+  // Load Auto-WhatsApp preference on mount
+  useEffect(() => {
+    AsyncStorage.getItem('@stampup_auto_whatsapp_enabled').then((val) => {
+      if (val !== null) setAutoWhatsAppEnabled(val === 'true');
+    });
+  }, []);
+
+  const toggleAutoWhatsApp = async () => {
+    const nextVal = !autoWhatsAppEnabled;
+    setAutoWhatsAppEnabled(nextVal);
+    await AsyncStorage.setItem('@stampup_auto_whatsapp_enabled', nextVal ? 'true' : 'false');
+  };
+
+  // Automated WhatsApp Dispatcher
+  const sendAutoWhatsApp = async (
+    targetPhone: string,
+    currentStamps: number,
+    stampsRequired: number,
+    isCardFull: boolean
+  ) => {
+    try {
+      const cleanDigits = targetPhone.replace(/[^0-9]/g, '');
+      if (!cleanDigits) return;
+
+      const slug = shop.slug || generateShopSlug(shop.name);
+      const cardUrl = `${customerWebBase.replace(/\/+$/, '')}/c/${slug}?phone=${encodeURIComponent(targetPhone)}`;
+
+      let message = '';
+      if (isCardFull) {
+        message = `🎉 *Congratulations from ${shop.name}!* \n\nYour stamp card is FULL (${stampsRequired}/${stampsRequired} stamps ⭐)! \n🎁 You have unlocked your *Free ${shop.reward_text}*!\n\nView your live digital card: \n${cardUrl}`;
+      } else {
+        const remaining = Math.max(0, stampsRequired - currentStamps);
+        message = `☕ *${shop.name} Loyalty Stamp Added!* \n\nYou now have *${currentStamps} of ${stampsRequired} stamps* ⭐. \n🎯 Only *${remaining} more stamp${remaining === 1 ? '' : 's'}* to earn a free *${shop.reward_text}*! \n\nView your live digital card: \n${cardUrl}`;
+      }
+
+      const waNative = `whatsapp://send?phone=${cleanDigits}&text=${encodeURIComponent(message)}`;
+      const canOpen = await Linking.canOpenURL(waNative).catch(() => false);
+      if (canOpen) {
+        await Linking.openURL(waNative);
+      } else {
+        const waWeb = `https://wa.me/${cleanDigits}?text=${encodeURIComponent(message)}`;
+        await Linking.openURL(waWeb);
+      }
+    } catch (e) {
+      console.warn('Auto WhatsApp dispatch failed:', e);
+    }
+  };
+
+  // Local notifications for modal fallback
+  const [localNotifications, setLocalNotifications] = useState<AppNotification[]>([]);
+  useEffect(() => {
+    const unsub = subscribeToNotifications(shop.id, setLocalNotifications);
+    return () => unsub();
+  }, [shop.id]);
+
+  const effectiveUnreadCount = unreadNotifsCount ?? localNotifications.filter((n) => !n.read).length;
 
   const [loading, setLoading] = useState<boolean>(false);
   const [rewardLoading, setRewardLoading] = useState<boolean>(false);
@@ -115,7 +188,7 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({ shop }) => {
   const [recentCustomers, setRecentCustomers] = useState<Customer[]>([]);
   const [matchingCustomers, setMatchingCustomers] = useState<Customer[]>([]);
 
-  // Incoming Customer Stamp Requests
+  // Incoming Customer Stamp Requests & Unified Notifications
   const [pendingRequests, setPendingRequests] = useState<StampRequest[]>([]);
   const [showRequestsModal, setShowRequestsModal] = useState<boolean>(false);
   const [resolvingId, setResolvingId] = useState<string | null>(null);
@@ -477,6 +550,11 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({ shop }) => {
           metadata: { phone: normalizedPhone, stamps: data.current_stamps },
         });
 
+        // Automatic WhatsApp dispatch if enabled
+        if (autoWhatsAppEnabled) {
+          sendAutoWhatsApp(normalizedPhone, data.current_stamps, data.stamps_required, false);
+        }
+
         // Activate 30-second Undo
         setLastAction({
           phone: normalizedPhone,
@@ -505,6 +583,11 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({ shop }) => {
           message: `Customer ${formatPhoneForDisplay(normalizedPhone)} collected ${data.stamps_required}/${data.stamps_required} stamps and earned a free ${shop.reward_text}!`,
           metadata: { phone: normalizedPhone, stamps: data.stamps_required },
         });
+
+        // Automatic WhatsApp dispatch if enabled
+        if (autoWhatsAppEnabled) {
+          sendAutoWhatsApp(normalizedPhone, data.current_stamps, data.stamps_required, true);
+        }
 
         setLastAction({
           phone: normalizedPhone,
@@ -624,6 +707,14 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({ shop }) => {
             stampsRequired: shop.stamps_required,
             phone: data.phone,
           });
+          if (autoWhatsAppEnabled && data.phone) {
+            sendAutoWhatsApp(
+              data.phone,
+              data.stamp_result?.current_stamps || 1,
+              shop.stamps_required,
+              (data.stamp_result?.current_stamps || 1) >= shop.stamps_required
+            );
+          }
         }
         fetchPendingRequests();
         fetchRecentCustomers();
@@ -738,11 +829,11 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({ shop }) => {
           </View>
 
           <View style={styles.headerBadges}>
-            {/* Live Requests Button with Badge */}
+            {/* Live Notifications & Counter Requests Button with Badge */}
             <TouchableOpacity
               style={[
                 styles.newRequestsBtn,
-                pendingRequests.length > 0 && styles.newRequestsBtnActive,
+                (pendingRequests.length > 0 || effectiveUnreadCount > 0) && styles.newRequestsBtnActive,
               ]}
               onPress={() => setShowRequestsModal(true)}
               activeOpacity={0.8}
@@ -751,14 +842,16 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({ shop }) => {
               <Text
                 style={[
                   styles.newRequestsBtnText,
-                  pendingRequests.length > 0 && styles.newRequestsBtnTextActive,
+                  (pendingRequests.length > 0 || effectiveUnreadCount > 0) && styles.newRequestsBtnTextActive,
                 ]}
               >
-                Requests
+                Notifications
               </Text>
-              {pendingRequests.length > 0 && (
+              {(pendingRequests.length > 0 || effectiveUnreadCount > 0) && (
                 <View style={styles.requestCountBadge}>
-                  <Text style={styles.requestCountBadgeText}>{pendingRequests.length}</Text>
+                  <Text style={styles.requestCountBadgeText}>
+                    {pendingRequests.length > 0 ? pendingRequests.length : effectiveUnreadCount}
+                  </Text>
                 </View>
               )}
             </TouchableOpacity>
@@ -1040,9 +1133,23 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({ shop }) => {
         <View style={styles.inputCard}>
           <View style={styles.inputHeaderRow}>
             <Text style={styles.inputSectionLabel}>CUSTOMER PHONE NUMBER</Text>
-            <View style={styles.activeCheckBadge}>
-              <Text style={styles.activeCheckBadgeText}>✓ Active Customers</Text>
-            </View>
+            <TouchableOpacity
+              style={[
+                styles.autoWhatsAppPill,
+                autoWhatsAppEnabled ? styles.autoWhatsAppPillActive : styles.autoWhatsAppPillInactive,
+              ]}
+              onPress={toggleAutoWhatsApp}
+              activeOpacity={0.7}
+            >
+              <Text
+                style={[
+                  styles.autoWhatsAppPillText,
+                  autoWhatsAppEnabled ? styles.autoWhatsAppPillTextActive : styles.autoWhatsAppPillTextInactive,
+                ]}
+              >
+                💬 WhatsApp: {autoWhatsAppEnabled ? 'Auto ON' : 'OFF'}
+              </Text>
+            </TouchableOpacity>
           </View>
 
           <View style={styles.phoneInputRow}>
@@ -1254,110 +1361,17 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({ shop }) => {
       </ScrollView>
 
       {/* ---------------------------------------------------- */}
-      {/* NEW REQUESTS NOTIFICATION MODAL */}
+      {/* UNIFIED NOTIFICATIONS & COUNTER REQUESTS MODAL */}
       {/* ---------------------------------------------------- */}
-      <Modal
+      <NotificationCenterModal
         visible={showRequestsModal}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setShowRequestsModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
-            <View style={styles.modalHeader}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Text style={styles.modalTitle}>🔔 Stamp Requests</Text>
-                <View style={styles.modalCountPill}>
-                  <Text style={styles.modalCountPillText}>{pendingRequests.length}</Text>
-                </View>
-              </View>
-              <TouchableOpacity
-                style={styles.modalCloseBtn}
-                onPress={() => setShowRequestsModal(false)}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.modalCloseText}>✕</Text>
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView style={styles.modalBody}>
-              {pendingRequests.length === 0 ? (
-                <View style={styles.emptyRequestsBox}>
-                  <Text style={styles.emptyRequestsIcon}>☕</Text>
-                  <Text style={styles.emptyRequestsTitle}>Queue Is Clear</Text>
-                  <Text style={styles.emptyRequestsSubtitle}>
-                    When customers scan their card and tap "Request a stamp", requests will arrive here instantly.
-                  </Text>
-                </View>
-              ) : (
-                pendingRequests.map((req) => (
-                  <View key={req.id} style={styles.singleLineRequestRowModal}>
-                    <View style={styles.requestAvatarCircle}>
-                      <Text style={styles.requestAvatarText}>
-                        {getInitials(req.customer_name, req.phone)}
-                      </Text>
-                    </View>
-
-                    <View style={styles.requestLeftCol}>
-                      {req.customer_name ? (
-                        <Text style={styles.requestCustomerName} numberOfLines={1}>
-                          {req.customer_name}
-                        </Text>
-                      ) : null}
-                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <Text style={styles.requestPhoneText} numberOfLines={1}>
-                          {formatPhoneForDisplay(req.phone)}
-                        </Text>
-                        <Text style={styles.requestTimeAgoText} numberOfLines={1}>
-                          • {getTimeAgo(req.created_at)}
-                        </Text>
-                      </View>
-                    </View>
-
-                    <View style={styles.requestRightCol}>
-                      <TouchableOpacity
-                        style={[
-                          styles.singleLineAcceptBtn,
-                          resolvingId === req.id && styles.btnDisabled,
-                        ]}
-                        onPress={() => handleResolveRequest(req.id, 'accept')}
-                        disabled={resolvingId === req.id}
-                        activeOpacity={0.8}
-                      >
-                        {resolvingId === req.id ? (
-                          <ActivityIndicator size="small" color="#FFFFFF" />
-                        ) : (
-                          <Text style={styles.singleLineAcceptText}>✓ Accept</Text>
-                        )}
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={[
-                          styles.singleLineRejectBtn,
-                          resolvingId === req.id && styles.btnDisabled,
-                        ]}
-                        onPress={() => handleResolveRequest(req.id, 'reject')}
-                        disabled={resolvingId === req.id}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={styles.singleLineRejectText}>✕</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                ))
-              )}
-            </ScrollView>
-
-            <TouchableOpacity
-              style={styles.modalDoneBtn}
-              onPress={() => setShowRequestsModal(false)}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.modalDoneBtnText}>Done</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+        shopId={shop.id}
+        notifications={localNotifications}
+        onClose={() => setShowRequestsModal(false)}
+        pendingRequests={pendingRequests}
+        onResolveRequest={handleResolveRequest}
+        resolvingId={resolvingId}
+      />
 
       {/* ---------------------------------------------------- */}
       {/* ADD STAMP CONFIRMATION POPUP MODAL */}
@@ -2799,5 +2813,29 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     color: '#1D4ED8',
+  },
+  autoWhatsAppPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  autoWhatsAppPillActive: {
+    backgroundColor: '#DCFCE7',
+    borderColor: '#86EFAC',
+  },
+  autoWhatsAppPillInactive: {
+    backgroundColor: '#F3F4F6',
+    borderColor: '#D1D5DB',
+  },
+  autoWhatsAppPillText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  autoWhatsAppPillTextActive: {
+    color: '#166534',
+  },
+  autoWhatsAppPillTextInactive: {
+    color: '#6B7280',
   },
 });

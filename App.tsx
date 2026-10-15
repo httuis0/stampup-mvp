@@ -396,18 +396,6 @@ export default function App() {
               <Text style={styles.cashierShopName}>{activeShop.name}</Text>
             </View>
             <TouchableOpacity
-              style={styles.cashierNotifBtn}
-              onPress={() => setNotificationModalVisible(true)}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.cashierNotifIcon}>🔔</Text>
-              {unreadNotifCount > 0 && (
-                <View style={styles.cashierNotifBadge}>
-                  <Text style={styles.cashierNotifBadgeText}>{unreadNotifCount}</Text>
-                </View>
-              )}
-            </TouchableOpacity>
-            <TouchableOpacity
               style={styles.unlockBtn}
               onPress={() => setUnlockModalVisible(true)}
             >
@@ -420,7 +408,13 @@ export default function App() {
         {/* TAB SCREENS */}
         {/* ---------------------------------------------------- */}
         <View style={styles.tabContentContainer}>
-          {activeTab === 'add_stamp' && <AddStampScreen shop={activeShop} />}
+          {activeTab === 'add_stamp' && (
+            <AddStampScreen
+              shop={activeShop}
+              onOpenNotifications={() => setNotificationModalVisible(true)}
+              unreadNotifsCount={unreadNotifCount}
+            />
+          )}
 
           {!cashierMode && activeTab === 'customers' && (
             <CustomersScreen shop={activeShop} />
@@ -510,24 +504,6 @@ export default function App() {
             </View>
           </View>
         </Modal>
-
-        {/* FLOATING NOTIFICATION BELL (Manager Mode) */}
-        {!cashierMode && (
-          <TouchableOpacity
-            style={styles.floatingNotifBtn}
-            onPress={() => setNotificationModalVisible(true)}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.floatingNotifIcon}>🔔</Text>
-            {unreadNotifCount > 0 && (
-              <View style={styles.floatingNotifBadge}>
-                <Text style={styles.floatingNotifBadgeText}>
-                  {unreadNotifCount > 9 ? '9+' : unreadNotifCount}
-                </Text>
-              </View>
-            )}
-          </TouchableOpacity>
-        )}
 
         {/* NOTIFICATION CENTER MODAL */}
         {activeShop && (
@@ -625,45 +601,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '700',
-  },
-  floatingNotifBtn: {
-    position: 'absolute',
-    bottom: 84,
-    right: 18,
-    backgroundColor: '#0F172A',
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 8,
-    zIndex: 9999,
-  },
-  floatingNotifIcon: {
-    fontSize: 20,
-  },
-  floatingNotifBadge: {
-    position: 'absolute',
-    top: -2,
-    right: -2,
-    backgroundColor: '#EF4444',
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 4,
-    borderWidth: 1.5,
-    borderColor: '#FFFFFF',
-  },
-  floatingNotifBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 10,
-    fontWeight: '800',
   },
   tabContentContainer: {
     flex: 1,

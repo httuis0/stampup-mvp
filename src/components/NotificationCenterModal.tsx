@@ -13,6 +13,7 @@ import {
   ScrollView,
   StyleSheet,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import {
   AppNotification,
@@ -21,6 +22,7 @@ import {
   markAllNotificationsAsRead,
   clearAllNotifications,
 } from '../utils/notifications';
+import type { StampRequest } from '../types';
 
 interface NotificationCenterModalProps {
   visible: boolean;
@@ -28,6 +30,9 @@ interface NotificationCenterModalProps {
   notifications: AppNotification[];
   onClose: () => void;
   onRequestSelect?: (requestId: string) => void;
+  pendingRequests?: StampRequest[];
+  onResolveRequest?: (requestId: string, action: 'accept' | 'reject') => Promise<void>;
+  resolvingId?: string | null;
 }
 
 type FilterCategory = 'all' | 'reward' | 'request' | 'alerts';
@@ -78,12 +83,17 @@ export const NotificationCenterModal: React.FC<NotificationCenterModalProps> = (
   notifications,
   onClose,
   onRequestSelect,
+  pendingRequests,
+  onResolveRequest,
+  resolvingId,
 }) => {
   const [filter, setFilter] = useState<FilterCategory>('all');
 
   const unreadCount = useMemo(() => {
-    return notifications.filter((n) => !n.read).length;
-  }, [notifications]);
+    const unreadNotifs = notifications.filter((n) => !n.read).length;
+    const reqCount = pendingRequests?.length || 0;
+    return unreadNotifs + reqCount;
+  }, [notifications, pendingRequests]);
 
   // Filter notifications based on active tab
   const filteredNotifications = useMemo(() => {
@@ -226,13 +236,71 @@ export const NotificationCenterModal: React.FC<NotificationCenterModalProps> = (
             </View>
           </View>
 
-          {/* Notification List */}
+          {/* Notification List & Counter Requests */}
           <ScrollView
             style={styles.scrollView}
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
           >
-            {filteredNotifications.length === 0 ? (
+            {/* Live Counter Requests Block (if pending) */}
+            {pendingRequests && pendingRequests.length > 0 && (filter === 'all' || filter === 'request') && (
+              <View style={styles.liveRequestsSection}>
+                <View style={styles.liveRequestsHeader}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <View style={styles.liveDot} />
+                    <Text style={styles.liveRequestsTitle}>
+                      Counter Requests ({pendingRequests.length})
+                    </Text>
+                  </View>
+                </View>
+
+                {pendingRequests.map((req) => (
+                  <View key={req.id} style={styles.requestCard}>
+                    <View style={styles.requestAvatarCircle}>
+                      <Text style={styles.requestAvatarText}>
+                        {(req.customer_name ? req.customer_name.slice(0, 2) : req.phone.slice(-2)).toUpperCase()}
+                      </Text>
+                    </View>
+
+                    <View style={styles.requestInfo}>
+                      {req.customer_name ? (
+                        <Text style={styles.requestCustomerName} numberOfLines={1}>
+                          {req.customer_name}
+                        </Text>
+                      ) : null}
+                      <Text style={styles.requestPhoneText}>{req.phone}</Text>
+                      <Text style={styles.requestTimeText}>{formatRelativeTime(req.created_at)}</Text>
+                    </View>
+
+                    {onResolveRequest && (
+                      <View style={styles.requestActionBtns}>
+                        <TouchableOpacity
+                          style={[styles.rejectBtn, resolvingId === req.id && { opacity: 0.5 }]}
+                          onPress={() => onResolveRequest(req.id, 'reject')}
+                          disabled={resolvingId === req.id}
+                        >
+                          <Text style={styles.rejectBtnText}>✕</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          style={[styles.acceptBtn, resolvingId === req.id && { opacity: 0.5 }]}
+                          onPress={() => onResolveRequest(req.id, 'accept')}
+                          disabled={resolvingId === req.id}
+                        >
+                          {resolvingId === req.id ? (
+                            <ActivityIndicator size="small" color="#FFFFFF" />
+                          ) : (
+                            <Text style={styles.acceptBtnText}>✓ Accept</Text>
+                          )}
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {filteredNotifications.length === 0 && (!pendingRequests || pendingRequests.length === 0) ? (
               <View style={styles.emptyState}>
                 <Text style={styles.emptyStateIcon}>🔕</Text>
                 <Text style={styles.emptyStateTitle}>No Notifications</Text>
@@ -515,5 +583,103 @@ const styles = StyleSheet.create({
     color: '#64748B',
     textAlign: 'center',
     lineHeight: 19,
+  },
+  liveRequestsSection: {
+    backgroundColor: '#EFF6FF',
+    borderRadius: 18,
+    padding: 14,
+    marginBottom: 12,
+    borderWidth: 1.5,
+    borderColor: '#BFDBFE',
+  },
+  liveRequestsHeader: {
+    marginBottom: 10,
+  },
+  liveDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#2563EB',
+  },
+  liveRequestsTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#1D4ED8',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  requestCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 10,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#DBEAFE',
+  },
+  requestAvatarCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#1E3A8A',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  requestAvatarText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  requestInfo: {
+    flex: 1,
+  },
+  requestCustomerName: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  requestPhoneText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#1E293B',
+  },
+  requestTimeText: {
+    fontSize: 10,
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  requestActionBtns: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  rejectBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: '#FEE2E2',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  rejectBtnText: {
+    color: '#DC2626',
+    fontWeight: '800',
+    fontSize: 14,
+  },
+  acceptBtn: {
+    backgroundColor: '#10B981',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    minWidth: 70,
+  },
+  acceptBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontSize: 12,
   },
 });

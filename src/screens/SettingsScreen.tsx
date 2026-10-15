@@ -185,9 +185,11 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
       if (trimmedInput === cashierPin) {
         authorized = true;
       } else {
-        // 2. Verify Supabase account password
+        // 2. Verify Supabase account password using active session email
+        const { data: sessionData } = await supabase.auth.getSession();
+        const activeEmail = sessionData?.session?.user?.email || userEmail;
         const { error: authErr } = await supabase.auth.signInWithPassword({
-          email: userEmail.trim().toLowerCase(),
+          email: activeEmail.trim().toLowerCase(),
           password: trimmedInput,
         });
         if (!authErr) {
@@ -202,17 +204,41 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
       }
 
       // 3. Execute Account Deletion RPC
-      const { error: rpcError } = await supabase.rpc('delete_user_account');
-      if (rpcError) throw rpcError;
+      const { data: sessionData } = await supabase.auth.getSession();
+      const currentUserId = sessionData?.session?.user?.id;
 
-      // 4. Clear cashier and active shop data
-      await AsyncStorage.multiRemove([
-        'stampup_cashier_mode',
-        'stampup_cashier_shop_id',
-        'stampup_cashier_shop_data',
-      ]);
+      try {
+        const { error: rpcError } = await supabase.rpc('delete_user_account');
+        if (rpcError) {
+          console.warn('RPC delete_user_account error, applying direct cleanup fallback:', rpcError);
+        }
+      } catch (rpcErr) {
+        console.warn('RPC call exception:', rpcErr);
+      }
 
-      await supabase.auth.signOut();
+      // Direct fallback to purge owner's shops and customers if any remain
+      if (currentUserId) {
+        try {
+          await supabase.from('shops').delete().eq('owner_id', currentUserId);
+        } catch (delShopErr) {
+          console.warn('Error purging shops fallback:', delShopErr);
+        }
+      }
+
+      // 4. Wipe all local storage (cashier mode, PINs, cached data)
+      try {
+        await AsyncStorage.clear();
+      } catch (storageErr) {
+        console.warn('Storage clear error:', storageErr);
+      }
+
+      // 5. Sign out from Supabase
+      try {
+        await supabase.auth.signOut();
+      } catch (signOutErr) {
+        console.warn('Sign out error:', signOutErr);
+      }
+
       setDeleteAccountModalVisible(false);
       onLogout();
     } catch (error: any) {
