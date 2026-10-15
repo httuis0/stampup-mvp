@@ -114,7 +114,7 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({
     await AsyncStorage.setItem('@stampup_auto_whatsapp_enabled', nextVal ? 'true' : 'false');
   };
 
-  // Automated WhatsApp Dispatcher
+  // Automated WhatsApp Background Dispatcher (Sends in background, NO app switching)
   const sendAutoWhatsApp = async (
     targetPhone: string,
     currentStamps: number,
@@ -136,14 +136,27 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({
         message = `☕ *${shop.name} Loyalty Stamp Added!* \n\nYou now have *${currentStamps} of ${stampsRequired} stamps* ⭐. \n🎯 Only *${remaining} more stamp${remaining === 1 ? '' : 's'}* to earn a free *${shop.reward_text}*! \n\nView your live digital card: \n${cardUrl}`;
       }
 
-      const waNative = `whatsapp://send?phone=${cleanDigits}&text=${encodeURIComponent(message)}`;
-      const canOpen = await Linking.canOpenURL(waNative).catch(() => false);
-      if (canOpen) {
-        await Linking.openURL(waNative);
-      } else {
-        const waWeb = `https://wa.me/${cleanDigits}?text=${encodeURIComponent(message)}`;
-        await Linking.openURL(waWeb);
+      // 1. Dispatch into Supabase Background Outbox Queue (NO app switching)
+      try {
+        await supabase.rpc('dispatch_whatsapp_message', {
+          p_shop_id: shop.id,
+          p_phone: targetPhone,
+          p_text: message,
+        });
+        console.log('Background WhatsApp notification queued for:', cleanDigits);
+      } catch (rpcErr) {
+        console.warn('Background WhatsApp RPC error:', rpcErr);
       }
+
+      // 2. In-app confirmation notification
+      addNotification({
+        shopId: shop.id,
+        type: 'stamp',
+        title: '💬 WhatsApp Sent in Background',
+        message: `Background WhatsApp update queued for ${formatPhoneForDisplay(targetPhone)} (${currentStamps}/${stampsRequired} stamps).`,
+        metadata: { phone: targetPhone, stamps: currentStamps },
+      });
+      // NOTICE: No Linking.openURL call here! Cashier flow remains 100% uninterrupted.
     } catch (e) {
       console.warn('Auto WhatsApp dispatch failed:', e);
     }
@@ -1046,7 +1059,15 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({
             </Text>
             {renderCircles(successInfo.currentStamps, successInfo.stampsRequired)}
 
-            {/* 1-Click WhatsApp Receipt Button */}
+            {autoWhatsAppEnabled && (
+              <View style={styles.whatsAppAutoBadge}>
+                <Text style={styles.whatsAppAutoBadgeText}>
+                  💬 Automated WhatsApp message dispatched to customer in background
+                </Text>
+              </View>
+            )}
+
+            {/* Optional Manual WhatsApp Chat Button */}
             <TouchableOpacity
               style={styles.whatsAppSuccessBtn}
               onPress={() => {
@@ -1058,7 +1079,7 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({
               }}
               activeOpacity={0.8}
             >
-              <Text style={styles.whatsAppSuccessBtnText}>💬 Send WhatsApp Receipt</Text>
+              <Text style={styles.whatsAppSuccessBtnText}>💬 Open WhatsApp Chat (Optional)</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -1089,7 +1110,15 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({
               )}
             </TouchableOpacity>
 
-            {/* 1-Click WhatsApp Reward Notification */}
+            {autoWhatsAppEnabled && (
+              <View style={styles.whatsAppAutoBadge}>
+                <Text style={styles.whatsAppAutoBadgeText}>
+                  🏆 Automated Reward alert dispatched to customer in background
+                </Text>
+              </View>
+            )}
+
+            {/* Optional Manual WhatsApp Alert */}
             <TouchableOpacity
               style={styles.whatsAppRewardBtn}
               onPress={() => {
@@ -1101,7 +1130,7 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({
               }}
               activeOpacity={0.8}
             >
-              <Text style={styles.whatsAppRewardBtnText}>💬 Send Reward Alert on WhatsApp</Text>
+              <Text style={styles.whatsAppRewardBtnText}>💬 Open WhatsApp Chat (Optional)</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -1147,7 +1176,7 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({
                   autoWhatsAppEnabled ? styles.autoWhatsAppPillTextActive : styles.autoWhatsAppPillTextInactive,
                 ]}
               >
-                💬 WhatsApp: {autoWhatsAppEnabled ? 'Auto ON' : 'OFF'}
+                💬 WhatsApp: {autoWhatsAppEnabled ? 'Background ON' : 'OFF'}
               </Text>
             </TouchableOpacity>
           </View>
@@ -2837,5 +2866,22 @@ const styles = StyleSheet.create({
   },
   autoWhatsAppPillTextInactive: {
     color: '#6B7280',
+  },
+  whatsAppAutoBadge: {
+    backgroundColor: '#DCFCE7',
+    borderColor: '#86EFAC',
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    marginTop: 10,
+    marginBottom: 6,
+    alignItems: 'center',
+  },
+  whatsAppAutoBadgeText: {
+    color: '#166534',
+    fontSize: 12,
+    fontWeight: '700',
+    textAlign: 'center',
   },
 });
