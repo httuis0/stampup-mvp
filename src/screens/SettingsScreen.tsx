@@ -37,6 +37,7 @@ import {
   setHapticsEnabled,
   playStampFeedback,
   playRewardFeedback,
+  playNotificationFeedback,
 } from '../utils/feedback';
 import {
   STAMP_THEMES,
@@ -945,6 +946,14 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   activeOpacity={0.7}
                 >
                   <Text style={[styles.feedbackTestBtnText, { color: '#B45309' }]}>🏆 Test Fanfare</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.feedbackTestBtn, { backgroundColor: '#EFF6FF', borderColor: '#BFDBFE' }]}
+                  onPress={() => playNotificationFeedback()}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.feedbackTestBtnText, { color: '#1D4ED8' }]}>🔔 Test Notification Sound</Text>
                 </TouchableOpacity>
               </View>
             </View>

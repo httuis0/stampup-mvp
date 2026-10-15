@@ -37,6 +37,7 @@ import {
 } from './src/utils/notifications';
 import { NotificationBanner } from './src/components/NotificationBanner';
 import { NotificationCenterModal } from './src/components/NotificationCenterModal';
+import { SoundBridge } from './src/components/SoundBridge';
 
 export default function App() {
   const [session, setSession] = useState<Session | null>(null);
@@ -352,6 +353,7 @@ export default function App() {
       <SafeAreaProvider>
         <SafeAreaView style={styles.safeArea}>
           <StatusBar style="dark" />
+          <SoundBridge />
           <AuthScreen onSuccess={() => setLoading(false)} />
         </SafeAreaView>
       </SafeAreaProvider>
@@ -364,6 +366,7 @@ export default function App() {
       <SafeAreaProvider>
         <SafeAreaView style={styles.safeArea}>
           <StatusBar style="dark" />
+          <SoundBridge />
           <ShopSetupScreen
             ownerId={session.user.id}
             onShopCreated={(newShop) => {
@@ -382,6 +385,7 @@ export default function App() {
     <SafeAreaProvider>
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <StatusBar style="dark" />
+        <SoundBridge />
 
         {/* IN-APP FLOATING NOTIFICATION BANNER */}
         <NotificationBanner onPressBanner={() => setNotificationModalVisible(true)} />

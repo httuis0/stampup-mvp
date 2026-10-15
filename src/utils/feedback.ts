@@ -1,12 +1,13 @@
 // ============================================================
 // Cashier Feedback Utility (Audio & Haptics)
-// Zero-dependency sound effects using Web Audio API synthesis
-// + tactile haptic feedback using expo-haptics.
+// Cross-platform sound effects via Web Audio API + Sound Bridge
+// for iOS, Android, and Web + tactile haptic feedback.
 // ============================================================
 
 import { Platform } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { playBridgeSound } from './soundBridge';
 
 // In-memory cache for instant synchronous checks
 let _soundEnabled = true;
@@ -42,7 +43,7 @@ export const setHapticsEnabled = async (enabled: boolean): Promise<void> => {
   await AsyncStorage.setItem('@stampup_haptics_enabled', enabled ? 'true' : 'false');
 };
 
-// Safe Web Audio Context accessor
+// Safe Web Audio Context accessor for Web browsers
 let audioCtx: any = null;
 
 function getAudioContext() {
@@ -67,7 +68,6 @@ function getAudioContext() {
  * Frequencies: 880Hz (A5) -> 1320Hz (E6)
  */
 export async function playStampFeedback() {
-  // Tactile haptic vibration
   if (_hapticsEnabled) {
     try {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -76,7 +76,10 @@ export async function playStampFeedback() {
 
   if (!_soundEnabled) return;
 
-  // Synthesized audio chime
+  // Native mobile audio bridge
+  playBridgeSound('stamp');
+
+  // Web fallback
   try {
     const ctx = getAudioContext();
     if (!ctx) return;
@@ -88,7 +91,7 @@ export async function playStampFeedback() {
     osc.frequency.setValueAtTime(880, ctx.currentTime);
     osc.frequency.exponentialRampToValueAtTime(1320, ctx.currentTime + 0.12);
 
-    gain.gain.setValueAtTime(0.2, ctx.currentTime);
+    gain.gain.setValueAtTime(0.3, ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
 
     osc.connect(gain);
@@ -100,7 +103,7 @@ export async function playStampFeedback() {
 }
 
 /**
- * 2. Reward Earned: Celebratory 3-Tone Fanfare Chord
+ * 2. Reward Earned: Celebratory 4-Tone Fanfare Chord
  * Frequencies: C5 (523Hz), E5 (659Hz), G5 (784Hz), C6 (1046Hz)
  */
 export async function playRewardFeedback() {
@@ -112,6 +115,10 @@ export async function playRewardFeedback() {
 
   if (!_soundEnabled) return;
 
+  // Native mobile audio bridge
+  playBridgeSound('reward');
+
+  // Web fallback
   try {
     const ctx = getAudioContext();
     if (!ctx) return;
@@ -125,7 +132,7 @@ export async function playRewardFeedback() {
       osc.type = 'triangle';
       osc.frequency.setValueAtTime(freq, startTime);
 
-      gain.gain.setValueAtTime(0.25, startTime);
+      gain.gain.setValueAtTime(0.35, startTime);
       gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.35);
 
       osc.connect(gain);
@@ -149,6 +156,10 @@ export async function playWarningFeedback() {
 
   if (!_soundEnabled) return;
 
+  // Native mobile audio bridge
+  playBridgeSound('warning');
+
+  // Web fallback
   try {
     const ctx = getAudioContext();
     if (!ctx) return;
@@ -160,7 +171,7 @@ export async function playWarningFeedback() {
     osc.frequency.setValueAtTime(320, ctx.currentTime);
     osc.frequency.setValueAtTime(260, ctx.currentTime + 0.1);
 
-    gain.gain.setValueAtTime(0.2, ctx.currentTime);
+    gain.gain.setValueAtTime(0.3, ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
 
     osc.connect(gain);
@@ -183,6 +194,10 @@ export async function playUndoFeedback() {
 
   if (!_soundEnabled) return;
 
+  // Native mobile audio bridge
+  playBridgeSound('undo');
+
+  // Web fallback
   try {
     const ctx = getAudioContext();
     if (!ctx) return;
@@ -194,7 +209,7 @@ export async function playUndoFeedback() {
     osc.frequency.setValueAtTime(1200, ctx.currentTime);
     osc.frequency.exponentialRampToValueAtTime(400, ctx.currentTime + 0.18);
 
-    gain.gain.setValueAtTime(0.2, ctx.currentTime);
+    gain.gain.setValueAtTime(0.3, ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
 
     osc.connect(gain);
@@ -206,8 +221,8 @@ export async function playUndoFeedback() {
 }
 
 /**
- * 5. Notification: Gentle Attention Double-Chime
- * Frequencies: 698Hz (F5) -> 880Hz (A5)
+ * 5. Notification: Crisp High-Pitch Bell Chime
+ * Frequencies: G5 (784Hz) -> C6 (1046Hz) -> E6 (1318Hz)
  */
 export async function playNotificationFeedback() {
   if (_hapticsEnabled) {
@@ -218,31 +233,31 @@ export async function playNotificationFeedback() {
 
   if (!_soundEnabled) return;
 
+  // Native mobile audio bridge (iOS & Android)
+  playBridgeSound('notification');
+
+  // Web fallback
   try {
     const ctx = getAudioContext();
     if (!ctx) return;
 
-    const osc1 = ctx.createOscillator();
-    const gain1 = ctx.createGain();
-    osc1.type = 'sine';
-    osc1.frequency.setValueAtTime(698.46, ctx.currentTime);
-    gain1.gain.setValueAtTime(0.15, ctx.currentTime);
-    gain1.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
-    osc1.connect(gain1);
-    gain1.connect(ctx.destination);
-    osc1.start(ctx.currentTime);
-    osc1.stop(ctx.currentTime + 0.12);
+    const notes = [783.99, 1046.50, 1318.51];
+    notes.forEach((freq, idx) => {
+      const startTime = ctx.currentTime + idx * 0.08;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
 
-    const osc2 = ctx.createOscillator();
-    const gain2 = ctx.createGain();
-    osc2.type = 'sine';
-    osc2.frequency.setValueAtTime(880, ctx.currentTime + 0.1);
-    gain2.gain.setValueAtTime(0.15, ctx.currentTime + 0.1);
-    gain2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
-    osc2.connect(gain2);
-    gain2.connect(ctx.destination);
-    osc2.start(ctx.currentTime + 0.1);
-    osc2.stop(ctx.currentTime + 0.25);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, startTime);
+
+      gain.gain.setValueAtTime(0.35, startTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.32);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(startTime);
+      osc.stop(startTime + 0.32);
+    });
   } catch (e) {}
 }
-
