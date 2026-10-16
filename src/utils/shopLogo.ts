@@ -117,3 +117,4 @@ export async function removeShopLogo(shopId: string): Promise<boolean> {
     return false;
   }
 }
+

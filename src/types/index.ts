@@ -20,6 +20,9 @@ export interface Shop {
   logo_url?: string | null;
   api_key?: string | null;
   pos_terminal_code?: string | null;
+  min_bill_amount?: number | null;
+  whatsapp_webhook_url?: string | null;
+  whatsapp_api_token?: string | null;
   created_at: string;
 }
 

@@ -61,6 +61,7 @@ import {
 import { NotificationCenterModal } from '../components/NotificationCenterModal';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { generateShopSlug } from '../utils/slug';
+import { relayWhatsAppOutboxMessage } from '../utils/posIntegrations';
 import type { Shop, Customer, StampRequest } from '../types';
 
 interface AddStampScreenProps {
@@ -138,18 +139,31 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({
       }
 
       // 1. Dispatch into Supabase Background Outbox Queue (NO app switching)
+      let outboxId: string | undefined;
       try {
-        await supabase.rpc('dispatch_whatsapp_message', {
+        const { data: rpcData } = await supabase.rpc('dispatch_whatsapp_message', {
           p_shop_id: shop.id,
           p_phone: targetPhone,
           p_text: message,
         });
+        outboxId = rpcData?.outbox_id;
         console.log('Background WhatsApp notification queued for:', cleanDigits);
       } catch (rpcErr) {
         console.warn('Background WhatsApp RPC error:', rpcErr);
       }
 
-      // 2. In-app confirmation notification
+      // 2. If a WhatsApp Cloud Gateway / Webhook is configured, dispatch directly in background
+      if (shop.whatsapp_webhook_url) {
+        relayWhatsAppOutboxMessage(
+          shop.whatsapp_webhook_url,
+          shop.whatsapp_api_token,
+          targetPhone,
+          message,
+          outboxId
+        );
+      }
+
+      // 3. In-app confirmation notification
       addNotification({
         shopId: shop.id,
         type: 'stamp',
@@ -162,6 +176,38 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({
       console.warn('Auto WhatsApp dispatch failed:', e);
     }
   };
+
+  // Real-time Background Relay for POS-triggered WhatsApp Outbox Messages
+  useEffect(() => {
+    const channel = supabase
+      .channel(`whatsapp_outbox_${shop.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'whatsapp_outbox',
+          filter: `shop_id=eq.${shop.id}`,
+        },
+        (payload) => {
+          const row = payload.new as any;
+          if (row && row.status === 'queued' && shop.whatsapp_webhook_url) {
+            relayWhatsAppOutboxMessage(
+              shop.whatsapp_webhook_url,
+              shop.whatsapp_api_token,
+              row.recipient_phone,
+              row.message_text,
+              row.id
+            );
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [shop.id, shop.whatsapp_webhook_url, shop.whatsapp_api_token]);
 
   // Local notifications for modal fallback
   const [localNotifications, setLocalNotifications] = useState<AppNotification[]>([]);

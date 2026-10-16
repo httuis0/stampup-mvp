@@ -36,6 +36,8 @@ import {
   regenerateApiKey,
   refreshTerminalCode,
   getPosWebhookUrl,
+  savePosAutomationRules,
+  relayWhatsAppOutboxMessage,
 } from '../utils/posIntegrations';
 import {
   getSoundEnabled,
@@ -330,9 +332,16 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   // POS & External API Integrations State & Handlers
   const [posApiKey, setPosApiKey] = useState<string>(shop.api_key || '');
   const [posTerminalCode, setPosTerminalCode] = useState<string>(shop.pos_terminal_code || '');
+  const [minBillAmountInput, setMinBillAmountInput] = useState<string>(
+    shop.min_bill_amount ? String(shop.min_bill_amount) : '0'
+  );
+  const [whatsappWebhookUrl, setWhatsappWebhookUrl] = useState<string>(shop.whatsapp_webhook_url || '');
+  const [whatsappApiToken, setWhatsappApiToken] = useState<string>(shop.whatsapp_api_token || '');
+  const [savingPosRules, setSavingPosRules] = useState<boolean>(false);
   const [showApiKey, setShowApiKey] = useState<boolean>(false);
   const [posLoading, setPosLoading] = useState<boolean>(false);
   const [testPosPhone, setTestPosPhone] = useState<string>('');
+  const [testPosAmount, setTestPosAmount] = useState<string>('25.00');
   const [testPosLoading, setTestPosLoading] = useState<boolean>(false);
   const [posTestResult, setPosTestResult] = useState<{ success: boolean; message: string } | null>(null);
 
@@ -342,7 +351,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     try {
       const { data } = await supabase
         .from('shops')
-        .select('api_key, pos_terminal_code')
+        .select('api_key, pos_terminal_code, min_bill_amount, whatsapp_webhook_url, whatsapp_api_token')
         .eq('id', shop.id)
         .single();
 
@@ -360,6 +369,15 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
       setPosApiKey(activeKey || '');
       setPosTerminalCode(activeCode || '');
+      if (data?.min_bill_amount !== undefined && data?.min_bill_amount !== null) {
+        setMinBillAmountInput(String(data.min_bill_amount));
+      }
+      if (data?.whatsapp_webhook_url) {
+        setWhatsappWebhookUrl(data.whatsapp_webhook_url);
+      }
+      if (data?.whatsapp_api_token) {
+        setWhatsappApiToken(data.whatsapp_api_token);
+      }
     } catch (e) {
       console.warn('Error loading POS details', e);
     } finally {
@@ -372,6 +390,39 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
       loadPosDetails();
     }
   }, [activeTab, shop.id]);
+
+  const handleSavePosRules = async () => {
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    const parsedMin = parseFloat(minBillAmountInput) || 0;
+    if (parsedMin < 0) {
+      setErrorMessage('Minimum bill amount cannot be negative.');
+      return;
+    }
+
+    setSavingPosRules(true);
+    try {
+      const res = await savePosAutomationRules(
+        shop.id,
+        parsedMin,
+        whatsappWebhookUrl,
+        whatsappApiToken
+      );
+      if (res.success) {
+        onShopUpdated({
+          ...shop,
+          min_bill_amount: parsedMin,
+          whatsapp_webhook_url: whatsappWebhookUrl.trim() || null,
+          whatsapp_api_token: whatsappApiToken.trim() || null,
+        });
+        setSuccessMessage('Automated POS Bill Rules & WhatsApp settings saved!');
+      } else {
+        setErrorMessage(res.error || 'Could not save POS rules.');
+      }
+    } finally {
+      setSavingPosRules(false);
+    }
+  };
 
   const handleRegenerateKey = async () => {
     Alert.alert(
@@ -412,29 +463,49 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
   const handleTestWebhook = async () => {
     if (!testPosPhone.trim()) {
-      Alert.alert('Phone Required', 'Please enter a customer mobile number to test the POS webhook.');
+      Alert.alert('Phone Required', 'Please enter a customer mobile number to simulate a POS bill punch.');
       return;
     }
+    const billValue = parseFloat(testPosAmount) || 0;
     setTestPosLoading(true);
     setPosTestResult(null);
     try {
       const { data, error } = await supabase.rpc('pos_add_stamp', {
         p_api_key: posApiKey,
         p_phone: testPosPhone.trim(),
-        p_amount: 15.0,
-        p_order_id: 'POS-TEST-' + Math.floor(1000 + Math.random() * 9000),
+        p_amount: billValue,
+        p_order_id: 'BILL-' + Math.floor(1000 + Math.random() * 9000),
       });
 
       if (error) {
         setPosTestResult({
           success: false,
-          message: error.message || 'Webhook RPC failed',
+          message: error.message || 'POS bill webhook failed',
         });
-      } else if (data?.status === 'ok' || data?.status === 'card_full' || data?.status === 'too_soon') {
+      } else if (data?.status === 'below_minimum') {
+        setPosTestResult({
+          success: false,
+          message:
+            data.message ||
+            `Bill amount (${billValue}) is below the minimum limit (${data.min_bill_amount}) required for an automatic stamp.`,
+        });
+      } else if (data?.status === 'ok' || data?.status === 'card_full') {
         playStampFeedback();
+
+        // If external WhatsApp Cloud/Webhook gateway is configured, relay immediately in background
+        if (whatsappWebhookUrl.trim() && data.whatsapp_message) {
+          relayWhatsAppOutboxMessage(
+            whatsappWebhookUrl,
+            whatsappApiToken,
+            data.phone || testPosPhone.trim(),
+            data.whatsapp_message,
+            data.outbox_id
+          );
+        }
+
         setPosTestResult({
           success: true,
-          message: `POS Webhook Verified! Customer received stamp (Status: ${data.status}, Stamps: ${data.current_stamps}/${data.stamps_required}).`,
+          message: `✅ Bill Punched (${billValue})! Instant Stamp Awarded (${data.current_stamps}/${data.stamps_required}) & Automated WhatsApp Message Dispatched in Background!`,
         });
       } else {
         setPosTestResult({
@@ -1205,6 +1276,124 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         {/* -------------------------------------------------------- */}
         {activeTab === 'pos' && (
           <View>
+            {/* Automated POS Bill Rules & Minimum Limit Card */}
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>⚡ Automated POS Bill & WhatsApp Rules</Text>
+              <Text style={styles.cardSubtitle}>
+                100% Hands-Free: Whenever you punch a bill on your POS with a customer number and the bill meets your minimum limit, the customer automatically receives an instant stamp and a WhatsApp message. You never need to open the StampUp app or WhatsApp.
+              </Text>
+
+              <Text style={styles.inputLabel}>💰 Minimum Bill Amount for Stamp (0 = Any Bill):</Text>
+              <TextInput
+                style={styles.input}
+                value={minBillAmountInput}
+                onChangeText={(t) => setMinBillAmountInput(t.replace(/[^0-9.]/g, ''))}
+                placeholder="e.g. 20.00"
+                placeholderTextColor="#94A3B8"
+                keyboardType="decimal-pad"
+              />
+
+              <Text style={styles.inputLabel}>💬 WhatsApp Cloud Gateway / Webhook URL (Optional):</Text>
+              <TextInput
+                style={styles.input}
+                value={whatsappWebhookUrl}
+                onChangeText={setWhatsappWebhookUrl}
+                placeholder="https://api.ultramsg.com/... or Meta / Make / Zapier URL"
+                placeholderTextColor="#94A3B8"
+                autoCapitalize="none"
+              />
+
+              <Text style={styles.inputLabel}>🔐 WhatsApp API Token (Optional):</Text>
+              <TextInput
+                style={styles.input}
+                value={whatsappApiToken}
+                onChangeText={setWhatsappApiToken}
+                placeholder="Bearer token or instance token"
+                placeholderTextColor="#94A3B8"
+                secureTextEntry
+                autoCapitalize="none"
+              />
+
+              <TouchableOpacity
+                style={[styles.primaryButton, savingPosRules && styles.buttonDisabled, { marginTop: 8 }]}
+                onPress={handleSavePosRules}
+                disabled={savingPosRules}
+                activeOpacity={0.7}
+              >
+                {savingPosRules ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <Text style={styles.primaryButtonText}>💾 Save Automated POS Rules</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+
+            {/* Interactive POS Bill Punch Simulator Card */}
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>🧪 Live POS Bill Punch Simulator</Text>
+              <Text style={styles.cardSubtitle}>
+                Simulate punching a bill on your POS register. If the bill amount meets your minimum limit ({minBillAmountInput || '0'}), the customer gets an instant stamp and background WhatsApp notification automatically.
+              </Text>
+
+              <View style={{ flexDirection: 'row', gap: 10 }}>
+                <View style={{ flex: 1.4 }}>
+                  <Text style={styles.inputLabel}>Customer Phone:</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={testPosPhone}
+                    onChangeText={setTestPosPhone}
+                    placeholder="e.g. +971501234567"
+                    placeholderTextColor="#94A3B8"
+                    keyboardType="phone-pad"
+                  />
+                </View>
+
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.inputLabel}>Bill Amount:</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={testPosAmount}
+                    onChangeText={(t) => setTestPosAmount(t.replace(/[^0-9.]/g, ''))}
+                    placeholder="25.00"
+                    placeholderTextColor="#94A3B8"
+                    keyboardType="decimal-pad"
+                  />
+                </View>
+              </View>
+
+              <TouchableOpacity
+                style={[styles.primaryButton, testPosLoading && styles.buttonDisabled, { marginTop: 4 }]}
+                onPress={handleTestWebhook}
+                disabled={testPosLoading}
+                activeOpacity={0.7}
+              >
+                {testPosLoading ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <Text style={styles.primaryButtonText}>🧾 Punch Bill (Auto-Stamp + Auto-WhatsApp)</Text>
+                )}
+              </TouchableOpacity>
+
+              {posTestResult && (
+                <View
+                  style={[
+                    styles.testResultBanner,
+                    posTestResult.success ? styles.testResultSuccess : styles.testResultError,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.testResultText,
+                      { color: posTestResult.success ? '#065F46' : '#991B1B' },
+                    ]}
+                  >
+                    {posTestResult.success ? '✓ ' : '⚠️ '}
+                    {posTestResult.message}
+                  </Text>
+                </View>
+              )}
+            </View>
+
             {/* Terminal Pairing Code Card */}
             <View style={styles.card}>
               <Text style={styles.cardTitle}>📱 Counter Staff Terminal Code</Text>
@@ -1251,7 +1440,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             <View style={styles.card}>
               <Text style={styles.cardTitle}>🔑 Secret POS API Key</Text>
               <Text style={styles.cardSubtitle}>
-                Authenticate external POS systems (Square, Clover, Toast, Shopify POS, Loyverse, or custom in-house software) to automatically award loyalty stamps upon purchase.
+                Authenticate external POS systems (Square, Clover, Toast, Shopify POS, Loyverse, or custom in-house billing software) to automatically award loyalty stamps upon bill checkout.
               </Text>
 
               <View style={styles.posKeyBox}>
@@ -1303,7 +1492,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             <View style={styles.card}>
               <Text style={styles.cardTitle}>🌐 POS Webhook & REST Endpoint</Text>
               <Text style={styles.cardSubtitle}>
-                Configure your POS webhook or background job to trigger an HTTP POST when a transaction is completed.
+                Configure your POS billing software to trigger this HTTP POST automatically when a bill is punched.
               </Text>
 
               <Text style={styles.inputLabel}>Endpoint URL (HTTP POST):</Text>
@@ -1337,56 +1526,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   }'`}
                 </Text>
               </View>
-            </View>
-
-            {/* Interactive Webhook Live Test Card */}
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>🧪 Live POS Webhook Test</Text>
-              <Text style={styles.cardSubtitle}>
-                Enter a test phone number to trigger a live POS test request and verify integration.
-              </Text>
-
-              <Text style={styles.inputLabel}>Test Customer Phone:</Text>
-              <TextInput
-                style={styles.input}
-                value={testPosPhone}
-                onChangeText={setTestPosPhone}
-                placeholder="e.g. +971501234567"
-                placeholderTextColor="#94A3B8"
-                keyboardType="phone-pad"
-              />
-
-              <TouchableOpacity
-                style={[styles.primaryButton, testPosLoading && styles.buttonDisabled, { marginTop: 8 }]}
-                onPress={handleTestWebhook}
-                disabled={testPosLoading}
-                activeOpacity={0.7}
-              >
-                {testPosLoading ? (
-                  <ActivityIndicator color="#FFFFFF" size="small" />
-                ) : (
-                  <Text style={styles.primaryButtonText}>🚀 Trigger Test POS Stamp</Text>
-                )}
-              </TouchableOpacity>
-
-              {posTestResult && (
-                <View
-                  style={[
-                    styles.testResultBanner,
-                    posTestResult.success ? styles.testResultSuccess : styles.testResultError,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.testResultText,
-                      { color: posTestResult.success ? '#065F46' : '#991B1B' },
-                    ]}
-                  >
-                    {posTestResult.success ? '✓ ' : '⚠️ '}
-                    {posTestResult.message}
-                  </Text>
-                </View>
-              )}
             </View>
           </View>
         )}
