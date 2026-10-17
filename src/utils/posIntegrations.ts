@@ -85,8 +85,13 @@ export async function savePosAutomationRules(
 }
 
 /**
- * Relay a queued WhatsApp message in the background to an external WhatsApp API Gateway
- * (Supports Meta WhatsApp Cloud API, UltraMsg, Wati, Make/Zapier, or Custom Webhooks)
+ * Relay a queued WhatsApp message in the background to an external WhatsApp API Gateway.
+ * Auto-detects provider format:
+ * - Green-API (api.green-api.com -> chatId: "<digits>@c.us", message)
+ * - UltraMsg (api.ultramsg.com -> token, to: "+<digits>", body)
+ * - TextMeBot / CallMeBot (api.textmebot.com / api.callmebot.com -> GET query params)
+ * - Meta WhatsApp Cloud API (graph.facebook.com -> messaging_product: "whatsapp", to, text: { body })
+ * - Generic Webhook (Make, Zapier, n8n, custom server)
  */
 export async function relayWhatsAppOutboxMessage(
   webhookUrl: string | null | undefined,
@@ -94,49 +99,111 @@ export async function relayWhatsAppOutboxMessage(
   recipientPhone: string,
   messageText: string,
   outboxId?: string
-): Promise<boolean> {
-  if (!webhookUrl || !webhookUrl.trim()) return false;
+): Promise<{ ok: boolean; error?: string }> {
+  if (!webhookUrl || !webhookUrl.trim()) {
+    return { ok: false, error: 'WhatsApp Gateway URL is not configured.' };
+  }
 
   try {
+    let targetUrl = webhookUrl.trim();
+    const token = apiToken?.trim() || '';
     const cleanDigits = recipientPhone.replace(/[^0-9]/g, '');
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-    };
-    if (apiToken && apiToken.trim()) {
-      headers['Authorization'] = `Bearer ${apiToken.trim()}`;
+    const e164Phone = '+' + cleanDigits;
+
+    let res: Response;
+
+    if (targetUrl.includes('textmebot.com') || targetUrl.includes('callmebot.com')) {
+      // TextMeBot / CallMeBot GET API
+      const sep = targetUrl.includes('?') ? '&' : '?';
+      const fullUrl = `${targetUrl}${sep}recipient=${encodeURIComponent(e164Phone)}&phone=${encodeURIComponent(e164Phone)}&apikey=${encodeURIComponent(token)}&text=${encodeURIComponent(messageText)}`;
+      res = await fetch(fullUrl, { method: 'GET' });
+    } else if (targetUrl.includes('green-api.com')) {
+      // Green-API format
+      // If user only pasted base instance URL without token at end, append token if needed
+      if (token && !targetUrl.endsWith(token) && targetUrl.includes('/sendMessage')) {
+        targetUrl = `${targetUrl.replace(/\/+$/, '')}/${token}`;
+      }
+      res = await fetch(targetUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chatId: `${cleanDigits}@c.us`,
+          message: messageText,
+        }),
+      });
+    } else if (targetUrl.includes('ultramsg.com')) {
+      // UltraMsg format
+      if (!targetUrl.endsWith('/messages/chat')) {
+        targetUrl = `${targetUrl.replace(/\/+$/, '')}/messages/chat`;
+      }
+      res = await fetch(targetUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          token,
+          to: e164Phone,
+          body: messageText,
+        }),
+      });
+    } else if (targetUrl.includes('graph.facebook.com')) {
+      // Official Meta WhatsApp Cloud API
+      res = await fetch(targetUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          messaging_product: 'whatsapp',
+          to: cleanDigits,
+          type: 'text',
+          text: { body: messageText },
+        }),
+      });
+    } else {
+      // Universal Webhook Payload (Make, Zapier, Wati, Custom Server)
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      res = await fetch(targetUrl, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          to: e164Phone,
+          phone: e164Phone,
+          chatId: `${cleanDigits}@c.us`,
+          recipient_phone: e164Phone,
+          body: messageText,
+          message: messageText,
+          text: { body: messageText },
+          token: token || undefined,
+        }),
+      });
     }
 
-    // Standard payload compatible with Meta Cloud API, UltraMsg, Wati, and Webhook relays
-    const payload = {
-      to: cleanDigits,
-      phone: recipientPhone,
-      recipient_phone: recipientPhone,
-      body: messageText,
-      message: messageText,
-      text: { body: messageText },
-      messaging_product: 'whatsapp',
-      type: 'text',
-      token: apiToken?.trim() || undefined,
-    };
-
-    const res = await fetch(webhookUrl.trim(), {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(payload),
-    });
+    const ok = res.ok;
+    let errText = '';
+    if (!ok) {
+      try {
+        errText = await res.text();
+      } catch {}
+    }
 
     if (outboxId) {
       await supabase
         .from('whatsapp_outbox')
         .update({
-          status: res.ok ? 'sent' : 'failed',
-          sent_at: res.ok ? new Date().toISOString() : null,
-          error_message: res.ok ? null : `HTTP ${res.status}`,
+          status: ok ? 'sent' : 'failed',
+          sent_at: ok ? new Date().toISOString() : null,
+          error_message: ok ? null : `HTTP ${res.status}: ${errText.slice(0, 120)}`,
         })
         .eq('id', outboxId);
     }
 
-    return res.ok;
+    return { ok, error: ok ? undefined : `HTTP ${res.status} ${errText.slice(0, 80)}` };
   } catch (err: any) {
     if (outboxId) {
       await supabase
@@ -147,6 +214,6 @@ export async function relayWhatsAppOutboxMessage(
         })
         .eq('id', outboxId);
     }
-    return false;
+    return { ok: false, error: err?.message || 'Network error' };
   }
 }

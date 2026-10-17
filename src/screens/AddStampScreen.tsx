@@ -34,6 +34,7 @@ import {
   playRewardFeedback,
   playWarningFeedback,
   playUndoFeedback,
+  playNotificationFeedback,
 } from '../utils/feedback';
 import {
   isVipCustomer,
@@ -95,6 +96,7 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({
   unreadNotifsCount,
 }) => {
   const [phone, setPhone] = useState<string>('');
+  const [billAmount, setBillAmount] = useState<string>('');
   const [selectedCountry, setSelectedCountry] = useState<Country>(
     findCountryByDialCode(shop.default_country_code || '+971')
   );
@@ -352,6 +354,9 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({
     } catch (e) {}
   };
 
+  // Track seen request IDs so we play notification sound once per new incoming request
+  const seenRequestIdsRef = useRef<Set<string>>(new Set());
+
   // Fetch Live Pending Stamp Requests
   const fetchPendingRequests = async () => {
     try {
@@ -361,8 +366,12 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({
 
       if (!error && data && data.requests) {
         const reqs = data.requests as StampRequest[];
-        // Send notification for each incoming counter request
+        let hasNewRequest = false;
         reqs.forEach((r) => {
+          if (!seenRequestIdsRef.current.has(r.id)) {
+            seenRequestIdsRef.current.add(r.id);
+            hasNewRequest = true;
+          }
           addNotification({
             shopId: shop.id,
             type: 'request',
@@ -371,6 +380,9 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({
             metadata: { requestId: r.id, phone: r.phone },
           });
         });
+        if (hasNewRequest) {
+          playNotificationFeedback();
+        }
         setPendingRequests(reqs);
       }
     } catch (e) {}
@@ -557,6 +569,17 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({
       return;
     }
 
+    // Check Minimum Bill Amount if configured or entered
+    const minBill = Number(shop.min_bill_amount) || 0;
+    if (!targetPhone && minBill > 0) {
+      const enteredBill = parseFloat(billAmount);
+      if (isNaN(enteredBill) || enteredBill < minBill) {
+        setErrorMessage(`Bill amount must be at least ${minBill} for an automatic stamp.`);
+        playWarningFeedback();
+        return;
+      }
+    }
+
     setPendingStampPhone(validation.normalized);
     setConfirmStampModalVisible(true);
   };
@@ -583,6 +606,7 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({
           setTodayStampsCount((prev) => prev + 1);
           setOfflineStampSaved({ phone: normalizedPhone });
           setPhone('');
+          setBillAmount('');
           return;
         }
         setErrorMessage(error.message || strings.common.error);
@@ -625,6 +649,7 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({
         setUndoSecondsLeft(30);
 
         setPhone('');
+        setBillAmount('');
         fetchRecentCustomers();
       } else if (data.status === 'card_full') {
         setCardFullInfo({
@@ -658,6 +683,7 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({
         setUndoSecondsLeft(30);
 
         setPhone('');
+        setBillAmount('');
         fetchRecentCustomers();
       } else if (data.status === 'too_soon') {
         setTooSoonInfo({ minutesLeft: data.minutes_left || 60 });
@@ -1110,27 +1136,18 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({
             </Text>
             {renderCircles(successInfo.currentStamps, successInfo.stampsRequired)}
 
-            {autoWhatsAppEnabled && (
-              <View style={styles.whatsAppAutoBadge}>
-                <Text style={styles.whatsAppAutoBadgeText}>
-                  💬 Automated WhatsApp message dispatched to customer in background
-                </Text>
-              </View>
-            )}
-
             {/* Optional Manual WhatsApp Chat Button */}
             <TouchableOpacity
               style={styles.whatsAppSuccessBtn}
               onPress={() => {
                 const targetSlug = shop.slug || shop.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-                // The web app expects the full phone number, including the + sign (e.g., +97150...)
                 const cardUrl = `${customerWebBase.replace(/\/+$/, '')}/c/${targetSlug}?phone=${encodeURIComponent(successInfo.phone)}`;
                 const text = `Hi! You just received a stamp at *${shop.name}* 🎉\n\nYou now have *${successInfo.currentStamps} of ${successInfo.stampsRequired}* stamps!\nCollect ${Math.max(0, successInfo.stampsRequired - successInfo.currentStamps)} more to unlock: *${shop.reward_text}*.\n\nView your digital card anytime here:\n${cardUrl}`;
                 sendWhatsApp(successInfo.phone, text);
               }}
               activeOpacity={0.8}
             >
-              <Text style={styles.whatsAppSuccessBtnText}>💬 Open WhatsApp Chat (Optional)</Text>
+              <Text style={styles.whatsAppSuccessBtnText}>💬 WhatsApp</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -1161,27 +1178,18 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({
               )}
             </TouchableOpacity>
 
-            {autoWhatsAppEnabled && (
-              <View style={styles.whatsAppAutoBadge}>
-                <Text style={styles.whatsAppAutoBadgeText}>
-                  🏆 Automated Reward alert dispatched to customer in background
-                </Text>
-              </View>
-            )}
-
             {/* Optional Manual WhatsApp Alert */}
             <TouchableOpacity
               style={styles.whatsAppRewardBtn}
               onPress={() => {
                 const targetSlug = shop.slug || shop.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-                // The web app expects the full phone number, including the + sign (e.g., +97150...)
                 const cardUrl = `${customerWebBase.replace(/\/+$/, '')}/c/${targetSlug}?phone=${encodeURIComponent(cardFullInfo.phone)}`;
                 const text = `Congratulations! 🏆\nYour loyalty card at *${shop.name}* is FULL!\n\nYou've earned your reward: *${shop.reward_text}* 🎁\nVisit us anytime to claim it!\n\nView card: ${cardUrl}`;
                 sendWhatsApp(cardFullInfo.phone, text);
               }}
               activeOpacity={0.8}
             >
-              <Text style={styles.whatsAppRewardBtnText}>💬 Open WhatsApp Chat (Optional)</Text>
+              <Text style={styles.whatsAppRewardBtnText}>💬 WhatsApp</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -1227,10 +1235,30 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({
                   autoWhatsAppEnabled ? styles.autoWhatsAppPillTextActive : styles.autoWhatsAppPillTextInactive,
                 ]}
               >
-                💬 WhatsApp: {autoWhatsAppEnabled ? 'Background ON' : 'OFF'}
+                💬 WhatsApp: {autoWhatsAppEnabled ? 'ON' : 'OFF'}
               </Text>
             </TouchableOpacity>
           </View>
+
+          {Number(shop.min_bill_amount) > 0 && (
+            <View style={[styles.phoneInputRow, { marginBottom: 10 }]}>
+              <View style={[styles.countryButton, { paddingHorizontal: 12 }]}>
+                <Text style={styles.countryDialCode}>🧾 Bill (Min {shop.min_bill_amount})</Text>
+              </View>
+              <TextInput
+                style={styles.phoneInput}
+                value={billAmount}
+                onChangeText={(t) => {
+                  clearStatuses();
+                  setBillAmount(t.replace(/[^0-9.]/g, ''));
+                }}
+                placeholder="0.00"
+                placeholderTextColor="#94A3B8"
+                keyboardType="decimal-pad"
+                editable={!loading}
+              />
+            </View>
+          )}
 
           <View style={styles.phoneInputRow}>
             {/* Country Selector Button */}
@@ -1264,13 +1292,6 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({
                 <Text style={styles.clearBtnText}>✕</Text>
               </TouchableOpacity>
             )}
-          </View>
-
-          {/* Format preview hint */}
-          <View style={styles.phoneHintRow}>
-            <Text style={styles.phoneHintText}>
-              Expected format: <Text style={styles.phoneHintBold}>{selectedCountry.dialCode} {selectedCountry.format}</Text>
-            </Text>
           </View>
 
           {/* Customer Recognition Banner (VIP / Personal Note) */}

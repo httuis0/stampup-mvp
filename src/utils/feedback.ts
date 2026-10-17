@@ -4,7 +4,7 @@
 // for iOS, Android, and Web + tactile haptic feedback.
 // ============================================================
 
-import { Platform } from 'react-native';
+import { Platform, Vibration } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { playBridgeSound } from './soundBridge';
@@ -71,6 +71,7 @@ export async function playStampFeedback() {
   if (_hapticsEnabled) {
     try {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (Platform.OS !== 'web') Vibration.vibrate(40);
     } catch (e) {}
   }
 
@@ -110,6 +111,7 @@ export async function playRewardFeedback() {
   if (_hapticsEnabled) {
     try {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (Platform.OS !== 'web') Vibration.vibrate([0, 60, 50, 80]);
     } catch (e) {}
   }
 
@@ -151,6 +153,7 @@ export async function playWarningFeedback() {
   if (_hapticsEnabled) {
     try {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      if (Platform.OS !== 'web') Vibration.vibrate([0, 50, 40, 50]);
     } catch (e) {}
   }
 
@@ -189,6 +192,7 @@ export async function playUndoFeedback() {
   if (_hapticsEnabled) {
     try {
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      if (Platform.OS !== 'web') Vibration.vibrate(35);
     } catch (e) {}
   }
 
@@ -228,6 +232,7 @@ export async function playNotificationFeedback() {
   if (_hapticsEnabled) {
     try {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (Platform.OS !== 'web') Vibration.vibrate([0, 45, 40, 65]);
     } catch (e) {}
   }
 

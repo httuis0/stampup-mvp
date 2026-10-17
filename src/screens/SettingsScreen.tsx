@@ -340,6 +340,8 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   const [savingPosRules, setSavingPosRules] = useState<boolean>(false);
   const [showApiKey, setShowApiKey] = useState<boolean>(false);
   const [posLoading, setPosLoading] = useState<boolean>(false);
+  const [posManualModalVisible, setPosManualModalVisible] = useState<boolean>(false);
+  const [testingWhatsApp, setTestingWhatsApp] = useState<boolean>(false);
   const [testPosPhone, setTestPosPhone] = useState<string>('');
   const [testPosAmount, setTestPosAmount] = useState<string>('25.00');
   const [testPosLoading, setTestPosLoading] = useState<boolean>(false);
@@ -424,6 +426,52 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     }
   };
 
+  const handleTestWhatsAppGateway = async () => {
+    if (!whatsappWebhookUrl.trim()) {
+      Alert.alert(
+        'WhatsApp Gateway URL Required',
+        'Please enter your WhatsApp Gateway URL (Green-API, UltraMsg, TextMeBot, Meta Cloud API, or Make/Zapier Webhook) first. Tap "📖 User Manual" for step-by-step setup instructions.'
+      );
+      return;
+    }
+    const targetPhone = testPosPhone.trim() || shopPhone.trim();
+    if (!targetPhone) {
+      Alert.alert('Phone Required', 'Enter a phone number in Customer Phone below to send a live test WhatsApp message.');
+      return;
+    }
+
+    setTestingWhatsApp(true);
+    setPosTestResult(null);
+    try {
+      const testMessage = `✅ *${shop.name} Background WhatsApp Test*\n\nYour StampUp automated WhatsApp gateway is connected and working in the background! 🎉\n\nDigital Card: ${customerLink}`;
+      const res = await relayWhatsAppOutboxMessage(
+        whatsappWebhookUrl,
+        whatsappApiToken,
+        targetPhone,
+        testMessage
+      );
+      if (res.ok) {
+        playNotificationFeedback();
+        setPosTestResult({
+          success: true,
+          message: `✅ Background WhatsApp delivered to ${targetPhone}!`,
+        });
+      } else {
+        setPosTestResult({
+          success: false,
+          message: `WhatsApp Gateway Error: ${res.error || 'Failed to send. Check URL & Token in User Manual.'}`,
+        });
+      }
+    } catch (e: any) {
+      setPosTestResult({
+        success: false,
+        message: e?.message || 'WhatsApp test failed',
+      });
+    } finally {
+      setTestingWhatsApp(false);
+    }
+  };
+
   const handleRegenerateKey = async () => {
     Alert.alert(
       'Regenerate API Key',
@@ -492,20 +540,23 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
       } else if (data?.status === 'ok' || data?.status === 'card_full') {
         playStampFeedback();
 
-        // If external WhatsApp Cloud/Webhook gateway is configured, relay immediately in background
+        let waStatusText = 'Queued in Outbox';
         if (whatsappWebhookUrl.trim() && data.whatsapp_message) {
-          relayWhatsAppOutboxMessage(
+          const waRes = await relayWhatsAppOutboxMessage(
             whatsappWebhookUrl,
             whatsappApiToken,
             data.phone || testPosPhone.trim(),
             data.whatsapp_message,
             data.outbox_id
           );
+          waStatusText = waRes.ok
+            ? 'Sent via Background WhatsApp Gateway'
+            : `Gateway Warning: ${waRes.error || 'Check Gateway URL'}`;
         }
 
         setPosTestResult({
           success: true,
-          message: `✅ Bill Punched (${billValue})! Instant Stamp Awarded (${data.current_stamps}/${data.stamps_required}) & Automated WhatsApp Message Dispatched in Background!`,
+          message: `✅ Bill Punched (${billValue})! Stamp Awarded (${data.current_stamps}/${data.stamps_required}) • WhatsApp: ${waStatusText}`,
         });
       } else {
         setPosTestResult({
@@ -893,10 +944,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               ) : (
                 /* Expanded Edit Form */
                 <View style={{ marginTop: 14 }}>
-                  <Text style={styles.cardSubtitle}>
-                    Update your shop profile and map location. Customers will see these details on their digital pass.
-                  </Text>
-
                   <Text style={styles.inputLabel}>Shop Name:</Text>
                   <TextInput
                     style={styles.input}
@@ -1031,12 +1078,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
             {/* Shop Brand & Logo Card */}
             <View style={styles.card}>
-              <Text style={styles.cardTitle}>🖼️ Shop Logo & Branding</Text>
-              <Text style={styles.cardSubtitle}>
-                Upload your official store logo. It syncs automatically across all cashier devices, counter stands, and customer digital cards.
-              </Text>
+              <Text style={styles.cardTitle}>🖼️ Shop Logo</Text>
 
-              <View style={styles.logoUploadRow}>
+              <View style={[styles.logoUploadRow, { marginTop: 12 }]}>
                 <View style={styles.logoPreviewWrapper}>
                   {shop.logo_url ? (
                     <Image source={{ uri: shop.logo_url }} style={styles.logoPreviewImage} resizeMode="cover" />
@@ -1079,12 +1123,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             {/* My Branches Section */}
             <View style={styles.card}>
               <View style={styles.cardHeaderRow}>
-                <View>
-                  <Text style={styles.cardTitle}>My Shops & Branches</Text>
-                  <Text style={styles.cardSubtitle}>
-                    Manage all your branch locations and switch anytime.
-                  </Text>
-                </View>
+                <Text style={styles.cardTitle}>My Shops & Branches</Text>
                 <TouchableOpacity
                   style={styles.smallAddBtn}
                   onPress={() => setNewBranchModalVisible(true)}
@@ -1138,10 +1177,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         {/* -------------------------------------------------------- */}
         {activeTab === 'region' && (
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>🌍 Shop Country & Phone Format</Text>
-            <Text style={styles.cardSubtitle}>
-              Sets the default country code and strict phone number format used by cashiers when adding customer stamps.
-            </Text>
+            <Text style={[styles.cardTitle, { marginBottom: 12 }]}>🌍 Shop Country & Phone Format</Text>
 
             <TouchableOpacity
               style={styles.countrySelectBox}
@@ -1175,16 +1211,13 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         {activeTab === 'security' && (
           <View>
             <View style={styles.card}>
-              <Text style={styles.cardTitle}>🛡️ Cashier Lock & Manager PIN</Text>
-              <Text style={styles.cardSubtitle}>
-                Cashier Mode locks the app to the Add Stamp screen. Cashiers cannot view settings, switch shops, or delete customers without your 4-digit PIN.
-              </Text>
+              <Text style={[styles.cardTitle, { marginBottom: 12 }]}>🛡️ Cashier Lock & Manager PIN</Text>
 
               {/* Secure PIN Status Box */}
               <View style={styles.securePinBox}>
                 <View>
-                  <Text style={styles.securePinLabel}>Manager PIN Status</Text>
-                  <Text style={styles.securePinMasked}>•••• (Active & Encrypted)</Text>
+                  <Text style={styles.securePinLabel}>Manager PIN</Text>
+                  <Text style={styles.securePinMasked}>••••</Text>
                 </View>
                 <TouchableOpacity
                   style={styles.changePinButton}
@@ -1200,24 +1233,16 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 onPress={onEnterCashierMode}
                 activeOpacity={0.7}
               >
-                <Text style={styles.cashierModeButtonText}>🔒 Enter Cashier Mode Now</Text>
+                <Text style={styles.cashierModeButtonText}>🔒 Enter Cashier Mode</Text>
               </TouchableOpacity>
             </View>
 
             {/* Counter Sound & Haptic Feedback Card */}
             <View style={styles.card}>
-              <Text style={styles.cardTitle}>🔊 Counter Sound & Haptic Feedback</Text>
-              <Text style={styles.cardSubtitle}>
-                Customize auditory registers and tactile vibration feedback when cashiers add stamps or award customer rewards.
-              </Text>
+              <Text style={[styles.cardTitle, { marginBottom: 8 }]}>🔊 Sound & Vibration</Text>
 
               <View style={styles.settingToggleRow}>
-                <View style={{ flex: 1, paddingRight: 12 }}>
-                  <Text style={styles.settingToggleTitle}>Register Audio Chimes</Text>
-                  <Text style={styles.settingToggleSubtitle}>
-                    Plays a crisp coin chime on stamp additions and celebratory fanfare on rewards.
-                  </Text>
-                </View>
+                <Text style={styles.settingToggleTitle}>Sound Effects</Text>
                 <Switch
                   value={soundEnabled}
                   onValueChange={handleToggleSound}
@@ -1227,12 +1252,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               </View>
 
               <View style={[styles.settingToggleRow, { borderBottomWidth: 0 }]}>
-                <View style={{ flex: 1, paddingRight: 12 }}>
-                  <Text style={styles.settingToggleTitle}>Tactile Haptic Vibration</Text>
-                  <Text style={styles.settingToggleSubtitle}>
-                    Physical device buzz for confirmation when buttons are pressed at the counter.
-                  </Text>
-                </View>
+                <Text style={styles.settingToggleTitle}>Vibration</Text>
                 <Switch
                   value={hapticsEnabled}
                   onValueChange={handleToggleHaptics}
@@ -1248,7 +1268,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   onPress={() => playStampFeedback()}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.feedbackTestBtnText}>▶️ Test Stamp Ding</Text>
+                  <Text style={styles.feedbackTestBtnText}>▶️ Stamp Sound</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -1256,7 +1276,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   onPress={() => playRewardFeedback()}
                   activeOpacity={0.7}
                 >
-                  <Text style={[styles.feedbackTestBtnText, { color: '#B45309' }]}>🏆 Test Fanfare</Text>
+                  <Text style={[styles.feedbackTestBtnText, { color: '#B45309' }]}>🏆 Reward Sound</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -1264,7 +1284,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   onPress={() => playNotificationFeedback()}
                   activeOpacity={0.7}
                 >
-                  <Text style={[styles.feedbackTestBtnText, { color: '#1D4ED8' }]}>🔔 Test Notification Sound</Text>
+                  <Text style={[styles.feedbackTestBtnText, { color: '#1D4ED8' }]}>🔔 Notification Sound</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -1276,64 +1296,85 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         {/* -------------------------------------------------------- */}
         {activeTab === 'pos' && (
           <View>
+            {/* User Manual Top Action Card */}
+            <View style={[styles.card, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 14 }]}>
+              <Text style={[styles.cardTitle, { marginBottom: 0 }]}>📖 POS & WhatsApp Setup</Text>
+              <TouchableOpacity
+                style={[styles.primaryButton, { paddingHorizontal: 16, paddingVertical: 10, minHeight: 40 }]}
+                onPress={() => setPosManualModalVisible(true)}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.primaryButtonText, { fontSize: 13 }]}>📖 User Manual</Text>
+              </TouchableOpacity>
+            </View>
+
             {/* Automated POS Bill Rules & Minimum Limit Card */}
             <View style={styles.card}>
-              <Text style={styles.cardTitle}>⚡ Automated POS Bill & WhatsApp Rules</Text>
-              <Text style={styles.cardSubtitle}>
-                100% Hands-Free: Whenever you punch a bill on your POS with a customer number and the bill meets your minimum limit, the customer automatically receives an instant stamp and a WhatsApp message. You never need to open the StampUp app or WhatsApp.
-              </Text>
+              <Text style={[styles.cardTitle, { marginBottom: 10 }]}>⚡ POS & WhatsApp Rules</Text>
 
-              <Text style={styles.inputLabel}>💰 Minimum Bill Amount for Stamp (0 = Any Bill):</Text>
+              <Text style={styles.inputLabel}>💰 Minimum Bill Amount:</Text>
               <TextInput
                 style={styles.input}
                 value={minBillAmountInput}
                 onChangeText={(t) => setMinBillAmountInput(t.replace(/[^0-9.]/g, ''))}
-                placeholder="e.g. 20.00"
+                placeholder="0"
                 placeholderTextColor="#94A3B8"
                 keyboardType="decimal-pad"
               />
 
-              <Text style={styles.inputLabel}>💬 WhatsApp Cloud Gateway / Webhook URL (Optional):</Text>
+              <Text style={styles.inputLabel}>💬 WhatsApp Gateway URL:</Text>
               <TextInput
                 style={styles.input}
                 value={whatsappWebhookUrl}
                 onChangeText={setWhatsappWebhookUrl}
-                placeholder="https://api.ultramsg.com/... or Meta / Make / Zapier URL"
+                placeholder="https://api.green-api.com/... or https://api.ultramsg.com/..."
                 placeholderTextColor="#94A3B8"
                 autoCapitalize="none"
               />
 
-              <Text style={styles.inputLabel}>🔐 WhatsApp API Token (Optional):</Text>
+              <Text style={styles.inputLabel}>🔐 WhatsApp API Token:</Text>
               <TextInput
                 style={styles.input}
                 value={whatsappApiToken}
                 onChangeText={setWhatsappApiToken}
-                placeholder="Bearer token or instance token"
+                placeholder="API Token (Optional)"
                 placeholderTextColor="#94A3B8"
                 secureTextEntry
                 autoCapitalize="none"
               />
 
-              <TouchableOpacity
-                style={[styles.primaryButton, savingPosRules && styles.buttonDisabled, { marginTop: 8 }]}
-                onPress={handleSavePosRules}
-                disabled={savingPosRules}
-                activeOpacity={0.7}
-              >
-                {savingPosRules ? (
-                  <ActivityIndicator color="#FFFFFF" size="small" />
-                ) : (
-                  <Text style={styles.primaryButtonText}>💾 Save Automated POS Rules</Text>
-                )}
-              </TouchableOpacity>
+              <View style={{ flexDirection: 'row', gap: 10, marginTop: 8 }}>
+                <TouchableOpacity
+                  style={[styles.primaryButton, { flex: 1 }, savingPosRules && styles.buttonDisabled]}
+                  onPress={handleSavePosRules}
+                  disabled={savingPosRules}
+                  activeOpacity={0.7}
+                >
+                  {savingPosRules ? (
+                    <ActivityIndicator color="#FFFFFF" size="small" />
+                  ) : (
+                    <Text style={styles.primaryButtonText}>💾 Save Rules</Text>
+                  )}
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.outlineButton, { flex: 1, marginTop: 0, marginBottom: 0, borderColor: '#86EFAC', backgroundColor: '#F0FDF4' }, testingWhatsApp && styles.buttonDisabled]}
+                  onPress={handleTestWhatsAppGateway}
+                  disabled={testingWhatsApp}
+                  activeOpacity={0.7}
+                >
+                  {testingWhatsApp ? (
+                    <ActivityIndicator color="#15803D" size="small" />
+                  ) : (
+                    <Text style={[styles.outlineButtonText, { color: '#15803D' }]}>📲 Test WhatsApp</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
             </View>
 
             {/* Interactive POS Bill Punch Simulator Card */}
             <View style={styles.card}>
-              <Text style={styles.cardTitle}>🧪 Live POS Bill Punch Simulator</Text>
-              <Text style={styles.cardSubtitle}>
-                Simulate punching a bill on your POS register. If the bill amount meets your minimum limit ({minBillAmountInput || '0'}), the customer gets an instant stamp and background WhatsApp notification automatically.
-              </Text>
+              <Text style={[styles.cardTitle, { marginBottom: 10 }]}>🧪 Punch POS Bill</Text>
 
               <View style={{ flexDirection: 'row', gap: 10 }}>
                 <View style={{ flex: 1.4 }}>
@@ -1342,7 +1383,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                     style={styles.input}
                     value={testPosPhone}
                     onChangeText={setTestPosPhone}
-                    placeholder="e.g. +971501234567"
+                    placeholder="+971501234567"
                     placeholderTextColor="#94A3B8"
                     keyboardType="phone-pad"
                   />
@@ -1370,7 +1411,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 {testPosLoading ? (
                   <ActivityIndicator color="#FFFFFF" size="small" />
                 ) : (
-                  <Text style={styles.primaryButtonText}>🧾 Punch Bill (Auto-Stamp + Auto-WhatsApp)</Text>
+                  <Text style={styles.primaryButtonText}>🧾 Punch Bill</Text>
                 )}
               </TouchableOpacity>
 
@@ -1396,19 +1437,15 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
             {/* Terminal Pairing Code Card */}
             <View style={styles.card}>
-              <Text style={styles.cardTitle}>📱 Counter Staff Terminal Code</Text>
-              <Text style={styles.cardSubtitle}>
-                Pair secondary cashier phones or counter tablets without sharing your account password or Manager PIN.
-              </Text>
+              <Text style={[styles.cardTitle, { marginBottom: 10 }]}>📱 Counter Terminal Code</Text>
 
               <View style={styles.posCodeCard}>
-                <Text style={styles.posCodeLabel}>6-Digit Staff Terminal PIN</Text>
+                <Text style={styles.posCodeLabel}>6-Digit Terminal PIN</Text>
                 <Text style={styles.posCodeText}>
                   {posTerminalCode
                     ? `${posTerminalCode.slice(0, 3)} ${posTerminalCode.slice(3, 6)}`
                     : '------'}
                 </Text>
-                <Text style={styles.posCodeExpiry}>Valid for counter cashier devices</Text>
 
                 <View style={styles.posCodeButtonsRow}>
                   <TouchableOpacity
@@ -1438,10 +1475,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
             {/* Live POS API Key Card */}
             <View style={styles.card}>
-              <Text style={styles.cardTitle}>🔑 Secret POS API Key</Text>
-              <Text style={styles.cardSubtitle}>
-                Authenticate external POS systems (Square, Clover, Toast, Shopify POS, Loyverse, or custom in-house billing software) to automatically award loyalty stamps upon bill checkout.
-              </Text>
+              <Text style={[styles.cardTitle, { marginBottom: 10 }]}>🔑 Secret POS API Key</Text>
 
               <View style={styles.posKeyBox}>
                 <Text style={styles.posKeyText} numberOfLines={1}>
@@ -1490,12 +1524,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
             {/* Webhook & REST API Documentation Card */}
             <View style={styles.card}>
-              <Text style={styles.cardTitle}>🌐 POS Webhook & REST Endpoint</Text>
-              <Text style={styles.cardSubtitle}>
-                Configure your POS billing software to trigger this HTTP POST automatically when a bill is punched.
-              </Text>
+              <Text style={[styles.cardTitle, { marginBottom: 10 }]}>🌐 POS Webhook Endpoint</Text>
 
-              <Text style={styles.inputLabel}>Endpoint URL (HTTP POST):</Text>
+              <Text style={styles.inputLabel}>Endpoint URL:</Text>
               <View style={styles.posKeyBox}>
                 <Text style={[styles.posKeyText, { fontSize: 12 }]} numberOfLines={1}>
                   {getPosWebhookUrl()}
@@ -1511,21 +1542,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   <Text style={{ fontSize: 13, fontWeight: '700', color: '#2563EB' }}>Copy</Text>
                 </TouchableOpacity>
               </View>
-
-              <Text style={[styles.inputLabel, { marginTop: 16 }]}>JSON Payload Example:</Text>
-              <View style={styles.posCodeSnippet}>
-                <Text style={styles.posCodeSnippetText}>
-                  {`curl -X POST "${getPosWebhookUrl()}" \\
-  -H "Content-Type: application/json" \\
-  -H "apikey: <SUPABASE_ANON_KEY>" \\
-  -d '{
-    "p_api_key": "${posApiKey ? posApiKey.slice(0, 12) + '...' : 'sp_live_xxxx'}",
-    "p_phone": "+971501234567",
-    "p_amount": 25.50,
-    "p_order_id": "ORD-1092"
-  }'`}
-                </Text>
-              </View>
             </View>
           </View>
         )}
@@ -1535,16 +1551,13 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         {/* -------------------------------------------------------- */}
         {activeTab === 'qr' && (
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>📱 Customer QR Code & Counter Stand</Text>
-            <Text style={styles.cardSubtitle}>
-              Customers point any phone camera at this QR code to view their stamp balance in their browser (no app download needed).
-            </Text>
+            <Text style={[styles.cardTitle, { marginBottom: 12 }]}>📱 Customer QR Code</Text>
 
             <ShopQRCode shopName={shop.name} customerLink={customerLink} />
 
             <TouchableOpacity style={styles.secondaryButton} onPress={handleCopyLink} activeOpacity={0.7}>
               <Text style={styles.secondaryButtonText}>
-                {copiedNotification ? '✓ Link Copied to Clipboard!' : '📋 Copy Customer Link'}
+                {copiedNotification ? '✓ Link Copied!' : '📋 Copy Customer Link'}
               </Text>
             </TouchableOpacity>
 
@@ -1560,7 +1573,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               activeOpacity={0.7}
             >
               <Text style={styles.whatsAppShareButtonText}>
-                💬 Share Card on WhatsApp
+                💬 Share on WhatsApp
               </Text>
             </TouchableOpacity>
 
@@ -1573,7 +1586,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               activeOpacity={0.7}
             >
               <Text style={styles.printFlyerButtonText}>
-                🖨️ Open Clean Tabletop Counter Flyer
+                🖨️ Counter Flyer
               </Text>
             </TouchableOpacity>
           </View>
@@ -1591,7 +1604,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               onPress={() => setPrivacyModalVisible(true)}
               activeOpacity={0.7}
             >
-              <Text style={styles.outlineButtonText}>📄 View Customer Privacy Policy</Text>
+              <Text style={styles.outlineButtonText}>📄 Privacy Policy</Text>
             </TouchableOpacity>
 
             <View style={styles.divider} />
@@ -1611,6 +1624,80 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           </View>
         )}
       </ScrollView>
+
+      {/* -------------------------------------------------------- */}
+      {/* MODAL: POS & WHATSAPP USER MANUAL */}
+      {/* -------------------------------------------------------- */}
+      <Modal
+        visible={posManualModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setPosManualModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContainer, { maxHeight: '88%' }]}>
+            <ScrollView contentContainerStyle={styles.modalContent} showsVerticalScrollIndicator={false}>
+              <Text style={styles.modalTitle}>📖 POS & WhatsApp User Manual</Text>
+              <Text style={styles.modalSubtitle}>
+                Complete step-by-step guide to connect any POS billing system and automate background WhatsApp messages.
+              </Text>
+
+              <Text style={styles.policyHeading}>1. How Automatic Bill Punching Works</Text>
+              <Text style={styles.policyBody}>
+                • Set your Minimum Bill Amount in the POS tab (e.g. 20.00).{'\n'}
+                • Whenever a bill is punched with the customer's phone number and the bill amount is equal to or above your minimum limit, StampUp automatically adds +1 stamp (or unlocks a reward) and dispatches a WhatsApp update in the background.{'\n'}
+                • You never need to open the WhatsApp app or tap Send manually.
+              </Text>
+
+              <Text style={styles.policyHeading}>2. How to Enable 100% Background WhatsApp</Text>
+              <Text style={styles.policyBody}>
+                Because iOS & Android block apps from silently pressing "Send" inside your personal WhatsApp app, background sending uses a WhatsApp Cloud Gateway. Connect any of these in 2 minutes:{'\n\n'}
+                • Option A: Green-API (Recommended — Free tier available){'\n'}
+                1. Go to green-api.com and create a free instance.{'\n'}
+                2. Scan the QR code with your shop's WhatsApp Business phone.{'\n'}
+                3. Copy your SendMessage URL:{'\n'}
+                https://api.green-api.com/waInstanceXXXX/sendMessage/TOKEN{'\n'}
+                4. Paste it into "WhatsApp Gateway URL" and tap Save Rules.{'\n\n'}
+                • Option B: UltraMsg{'\n'}
+                1. Go to ultramsg.com and link your shop WhatsApp.{'\n'}
+                2. Paste https://api.ultramsg.com/instanceXXXX/messages/chat into "WhatsApp Gateway URL".{'\n'}
+                3. Paste your token into "WhatsApp API Token" and tap Save Rules.{'\n\n'}
+                • Option C: TextMeBot / CallMeBot{'\n'}
+                1. Paste https://api.textmebot.com/send.php into "WhatsApp Gateway URL" and your API key into "WhatsApp API Token".{'\n\n'}
+                • Option D: Meta Official Cloud API or Make.com / Zapier{'\n'}
+                1. Paste your graph.facebook.com messages URL or Make/Zapier webhook URL and Bearer Token.{'\n'}
+                2. Tap "📲 Test WhatsApp" to verify instant background delivery!
+              </Text>
+
+              <Text style={styles.policyHeading}>3. Connecting Any POS Software (Webhook API)</Text>
+              <Text style={styles.policyBody}>
+                Works with Square, Clover, Loyverse, Shopify POS, Toast, Zoho, or custom billing software:{'\n\n'}
+                1. Copy your Endpoint URL and Secret POS API Key from the POS tab.{'\n'}
+                2. In your POS software (or via Make.com / Zapier POS trigger), configure an HTTP POST request on "Order Completed / Bill Paid" to:{'\n'}
+                {getPosWebhookUrl()}{'\n\n'}
+                3. Include Headers:{'\n'}
+                Content-Type: application/json{'\n'}
+                apikey: (Your Supabase Anon Key){'\n\n'}
+                4. Send JSON Body:{'\n'}
+                {`{\n  "p_api_key": "${posApiKey ? posApiKey.slice(0, 12) + '...' : 'sp_live_xxxx'}",\n  "p_phone": "+971501234567",\n  "p_amount": 25.00,\n  "p_order_id": "BILL-101"\n}`}
+              </Text>
+
+              <Text style={styles.policyHeading}>4. Pairing Counter Cashier Tablets</Text>
+              <Text style={styles.policyBody}>
+                • Use the 6-Digit Terminal PIN on the POS tab to log in secondary counter phones or tablets without sharing your owner email or password.
+              </Text>
+
+              <TouchableOpacity
+                style={[styles.primaryButton, { marginTop: 18 }]}
+                onPress={() => setPosManualModalVisible(false)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.primaryButtonText}>Got It</Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
 
       {/* -------------------------------------------------------- */}
       {/* MODAL: CHANGE MANAGER PIN */}
