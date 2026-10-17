@@ -1,6 +1,9 @@
 {
   "rewrites": [
     { "source": "/c/:slug*", "destination": "/index.html" },
+    { "source": "/pos", "destination": "/pos.html" },
+    { "source": "/pos.html", "destination": "/pos.html" },
+    { "source": "/api/pos-webhook", "destination": "/api/pos-webhook.js" },
     { "source": "/manifest.json", "destination": "/manifest.json" },
     { "source": "/icon.svg", "destination": "/icon.svg" },
     { "source": "/icon.png", "destination": "/icon.png" },

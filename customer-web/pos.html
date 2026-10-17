@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>StampUp — Live POS Billing Terminal</title>
+  <link rel="icon" type="image/png" href="/favicon.png" />
+  <style>
+    :root {
+      --bg: #0F172A;
+      --card: #1E293B;
+      --border: #334155;
+      --primary: #2563EB;
+      --success: #10B981;
+      --warning: #F59E0B;
+      --danger: #EF4444;
+      --text: #F8FAFC;
+      --muted: #94A3B8;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .pos-shell {
+      width: 100%;
+      max-width: 480px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 28px;
+      box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 22px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .logo-circle {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: var(--primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 20px;
+      overflow: hidden;
+    }
+    .logo-circle img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .shop-title {
+      font-size: 18px;
+      font-weight: 800;
+    }
+    .shop-sub {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+    .live-badge {
+      background: rgba(16, 185, 129, 0.15);
+      color: #34D399;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      padding: 5px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .field-group {
+      margin-bottom: 16px;
+    }
+    label {
+      display: block;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    input {
+      width: 100%;
+      background: #0F172A;
+      border: 1.5px solid var(--border);
+      color: var(--text);
+      padding: 14px 16px;
+      border-radius: 14px;
+      font-size: 18px;
+      font-weight: 700;
+      outline: none;
+    }
+    input:focus {
+      border-color: var(--primary);
+    }
+    .btn {
+      width: 100%;
+      background: var(--primary);
+      color: white;
+      border: none;
+      padding: 16px;
+      border-radius: 14px;
+      font-size: 17px;
+      font-weight: 800;
+      cursor: pointer;
+      margin-top: 6px;
+      transition: opacity 0.15s;
+    }
+    .btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    .status-box {
+      margin-top: 18px;
+      padding: 14px 16px;
+      border-radius: 14px;
+      font-size: 14px;
+      font-weight: 600;
+      line-height: 1.45;
+      display: none;
+    }
+    .status-ok {
+      display: block;
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      color: #6EE7B7;
+    }
+    .status-err {
+      display: block;
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid rgba(239, 68, 68, 0.4);
+      color: #FCA5A5;
+    }
+    #pairSection { display: none; }
+    #terminalSection { display: none; }
+  </style>
+</head>
+<body>
+  <div class="pos-shell">
+    <!-- Pairing Screen if no key/code in URL -->
+    <div id="pairSection">
+      <div class="header">
+        <div class="brand">
+          <div class="logo-circle">🔌</div>
+          <div>
+            <div class="shop-title">Pair POS Terminal</div>
+            <div class="shop-sub">Enter 6-Digit Terminal Code or POS API Key</div>
+          </div>
+        </div>
+      </div>
+      <div class="field-group">
+        <label>Terminal Code or API Key</label>
+        <input type="text" id="pairCodeInput" placeholder="e.g. 482910 or sp_live_..." />
+      </div>
+      <button class="btn" id="pairBtn" onclick="pairTerminal()">Connect POS Terminal</button>
+      <div id="pairStatus" class="status-box"></div>
+    </div>
+
+    <!-- Active POS Billing Terminal -->
+    <div id="terminalSection">
+      <div class="header">
+        <div class="brand">
+          <div class="logo-circle" id="shopLogo">🏪</div>
+          <div>
+            <div class="shop-title" id="shopName">POS Register</div>
+            <div class="shop-sub" id="shopRule">Automated Bill + Stamp + WhatsApp</div>
+          </div>
+        </div>
+        <div class="live-badge">● LIVE POS</div>
+      </div>
+
+      <form onsubmit="event.preventDefault(); punchBill();">
+        <div class="field-group">
+          <label id="billLabel">Bill Amount</label>
+          <input type="number" step="0.01" id="billInput" placeholder="0.00" required autofocus />
+        </div>
+
+        <div class="field-group">
+          <label>Customer Phone Number</label>
+          <input type="tel" id="phoneInput" placeholder="+971 50 123 4567" required />
+        </div>
+
+        <button type="submit" class="btn" id="punchBtn">⚡ Punch Bill</button>
+      </form>
+
+      <div id="punchStatus" class="status-box"></div>
+    </div>
+  </div>
+
+  <script>
+    const SUPABASE_URL = 'https://leoleteiwpirmdtfoufa.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxlb2xldGVpd3Bpcm1kdGZvdWZhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA5MzE0MjQsImV4cCI6MjEwNjUwNzQyNH0.ijyVogbCxLllDgf_4EgoYyMFZ9QqCayiUi3OxuEWrhk';
+
+    let activeKey = '';
+    let activeShop = null;
+
+    function playPosChime() {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.frequency.setValueAtTime(880, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(1320, ctx.currentTime + 0.14);
+        gain.gain.setValueAtTime(0.3, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.28);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.28);
+      } catch (e) {}
+    }
+
+    async function init() {
+      const params = new URLSearchParams(window.location.search);
+      const keyParam = params.get('key') || params.get('code') || localStorage.getItem('stampup_pos_key');
+      if (keyParam) {
+        document.getElementById('pairCodeInput').value = keyParam;
+        await pairTerminal(keyParam);
+      } else {
+        document.getElementById('pairSection').style.display = 'block';
+      }
+    }
+
+    async function pairTerminal(codeOverride) {
+      const code = (codeOverride || document.getElementById('pairCodeInput').value || '').trim();
+      if (!code) return;
+      const statusEl = document.getElementById('pairStatus');
+      statusEl.className = 'status-box';
+      try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/pair_pos_terminal`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            apikey: SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+          },
+          body: JSON.stringify({ p_code: code }),
+        });
+        const data = await res.json();
+        if (data && data.status === 'ok' && data.shop) {
+          activeShop = data.shop;
+          activeKey = data.shop.api_key || code;
+          localStorage.setItem('stampup_pos_key', activeKey);
+          document.getElementById('pairSection').style.display = 'none';
+          document.getElementById('terminalSection').style.display = 'block';
+          document.getElementById('shopName').textContent = activeShop.name;
+          const minAmt = Number(activeShop.min_bill_amount) || 0;
+          document.getElementById('shopRule').textContent =
+            minAmt > 0
+              ? `Min Bill: ${minAmt} • ${activeShop.stamps_required} stamps = ${activeShop.reward_text}`
+              : `${activeShop.stamps_required} stamps = ${activeShop.reward_text}`;
+          if (minAmt > 0) {
+            document.getElementById('billLabel').textContent = `Bill Amount (Min ${minAmt})`;
+          }
+          if (activeShop.logo_url) {
+            document.getElementById('shopLogo').innerHTML = `<img src="${activeShop.logo_url}" alt="Logo" />`;
+          }
+          if (activeShop.default_country_code) {
+            document.getElementById('phoneInput').value = activeShop.default_country_code + ' ';
+          }
+        } else {
+          document.getElementById('pairSection').style.display = 'block';
+          statusEl.className = 'status-box status-err';
+          statusEl.textContent = data?.message || 'Invalid POS code or key.';
+        }
+      } catch (err) {
+        document.getElementById('pairSection').style.display = 'block';
+        statusEl.className = 'status-box status-err';
+        statusEl.textContent = 'Connection error. Please try again.';
+      }
+    }
+
+    async function punchBill() {
+      const amount = parseFloat(document.getElementById('billInput').value) || 0;
+      const phone = document.getElementById('phoneInput').value.trim();
+      const btn = document.getElementById('punchBtn');
+      const statusEl = document.getElementById('punchStatus');
+
+      if (!phone) return;
+      btn.disabled = true;
+      btn.textContent = 'Processing Bill...';
+      statusEl.className = 'status-box';
+
+      try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/pos_add_stamp`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            apikey: SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+          },
+          body: JSON.stringify({
+            p_api_key: activeKey,
+            p_phone: phone,
+            p_amount: amount,
+            p_order_id: 'POS-' + Date.now(),
+          }),
+        });
+        const data = await res.json();
+
+        if (data.status === 'ok' || data.status === 'card_full') {
+          playPosChime();
+          statusEl.className = 'status-box status-ok';
+          statusEl.textContent = `✓ Bill ${amount} Punched! ${data.phone} now has ${data.current_stamps}/${data.stamps_required} stamps. WhatsApp sent automatically in background!`;
+          document.getElementById('billInput').value = '';
+          document.getElementById('phoneInput').value = (activeShop?.default_country_code || '+971') + ' ';
+          document.getElementById('billInput').focus();
+        } else {
+          statusEl.className = 'status-box status-err';
+          statusEl.textContent = `⚠️ ${data.message || 'Could not process bill.'}`;
+        }
+      } catch (err) {
+        statusEl.className = 'status-box status-err';
+        statusEl.textContent = '⚠️ Network error while punching bill.';
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '⚡ Punch Bill';
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>

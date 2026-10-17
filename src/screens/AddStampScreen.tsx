@@ -179,7 +179,7 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({
     }
   };
 
-  // Real-time Background Relay for POS-triggered WhatsApp Outbox Messages
+  // Real-time Background Relay for POS-triggered WhatsApp Outbox Messages & Live POS Sync
   useEffect(() => {
     const channel = supabase
       .channel(`whatsapp_outbox_${shop.id}`)
@@ -193,6 +193,8 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({
         },
         (payload) => {
           const row = payload.new as any;
+          fetchTodayStamps();
+          fetchRecentCustomers();
           if (row && row.status === 'queued' && shop.whatsapp_webhook_url) {
             relayWhatsAppOutboxMessage(
               shop.whatsapp_webhook_url,
@@ -556,7 +558,7 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({
     return '★';
   };
 
-  // Step 1: Trigger Confirmation Popup
+  // Instant 1-Tap Stamp & Bill Execution (No blocking popup)
   const handleAddStamp = (targetPhone?: string) => {
     clearStatuses();
     const phoneToUse = targetPhone || phone;
@@ -571,23 +573,22 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({
 
     // Check Minimum Bill Amount if configured or entered
     const minBill = Number(shop.min_bill_amount) || 0;
-    if (!targetPhone && minBill > 0) {
+    if (!targetPhone && (minBill > 0 || billAmount.trim().length > 0)) {
       const enteredBill = parseFloat(billAmount);
-      if (isNaN(enteredBill) || enteredBill < minBill) {
+      if (minBill > 0 && (isNaN(enteredBill) || enteredBill < minBill)) {
         setErrorMessage(`Bill amount must be at least ${minBill} for an automatic stamp.`);
         playWarningFeedback();
         return;
       }
     }
 
-    setPendingStampPhone(validation.normalized);
-    setConfirmStampModalVisible(true);
+    executeConfirmedStamp(validation.normalized);
   };
 
-  // Step 2: Execute Stamp upon Cashier/Manager "Yes" Confirmation
-  const executeConfirmedStamp = async () => {
-    if (!pendingStampPhone) return;
-    const normalizedPhone = pendingStampPhone;
+  // Execute Stamp & Background WhatsApp Immediately
+  const executeConfirmedStamp = async (directPhone?: string) => {
+    const normalizedPhone = directPhone || pendingStampPhone;
+    if (!normalizedPhone) return;
 
     setConfirmStampModalVisible(false);
     setLoading(true);
@@ -1240,25 +1241,32 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({
             </TouchableOpacity>
           </View>
 
-          {Number(shop.min_bill_amount) > 0 && (
-            <View style={[styles.phoneInputRow, { marginBottom: 10 }]}>
-              <View style={[styles.countryButton, { paddingHorizontal: 12 }]}>
-                <Text style={styles.countryDialCode}>🧾 Bill (Min {shop.min_bill_amount})</Text>
-              </View>
-              <TextInput
-                style={styles.phoneInput}
-                value={billAmount}
-                onChangeText={(t) => {
-                  clearStatuses();
-                  setBillAmount(t.replace(/[^0-9.]/g, ''));
-                }}
-                placeholder="0.00"
-                placeholderTextColor="#94A3B8"
-                keyboardType="decimal-pad"
-                editable={!loading}
-              />
+          <View style={[styles.phoneInputRow, { marginBottom: 10 }]}>
+            <View style={[styles.countryButton, { paddingHorizontal: 12 }]}>
+              <Text style={styles.countryDialCode}>
+                {Number(shop.min_bill_amount) > 0
+                  ? `🧾 Bill (Min ${shop.min_bill_amount})`
+                  : '🧾 Bill Amount'}
+              </Text>
             </View>
-          )}
+            <TextInput
+              style={styles.phoneInput}
+              value={billAmount}
+              onChangeText={(t) => {
+                clearStatuses();
+                setBillAmount(t.replace(/[^0-9.]/g, ''));
+              }}
+              placeholder="0.00"
+              placeholderTextColor="#94A3B8"
+              keyboardType="decimal-pad"
+              editable={!loading}
+            />
+            {billAmount.length > 0 && (
+              <TouchableOpacity style={styles.clearBtn} onPress={() => setBillAmount('')} activeOpacity={0.6}>
+                <Text style={styles.clearBtnText}>✕</Text>
+              </TouchableOpacity>
+            )}
+          </View>
 
           <View style={styles.phoneInputRow}>
             {/* Country Selector Button */}
@@ -1514,7 +1522,7 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({
 
               <TouchableOpacity
                 style={styles.confirmModalConfirmBtn}
-                onPress={executeConfirmedStamp}
+                onPress={() => executeConfirmedStamp()}
                 disabled={loading}
                 activeOpacity={0.85}
               >

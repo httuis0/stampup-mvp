@@ -347,6 +347,26 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   const [testPosLoading, setTestPosLoading] = useState<boolean>(false);
   const [posTestResult, setPosTestResult] = useState<{ success: boolean; message: string } | null>(null);
 
+  // Auto-normalize WhatsApp Gateway input (allows user to enter just Instance ID + Token or full URL)
+  const buildNormalizedGatewayUrl = (rawUrlOrId: string, rawToken: string): string => {
+    const trimmed = rawUrlOrId.trim();
+    const tok = rawToken.trim();
+    if (!trimmed) return '';
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      return trimmed;
+    }
+    // If user entered a numeric Green-API Instance ID (e.g. "7103948123" or "waInstance7103948123")
+    const cleanGreenId = trimmed.replace(/^waInstance/i, '');
+    if (/^\d{6,15}$/.test(cleanGreenId) && tok) {
+      return `https://api.green-api.com/waInstance${cleanGreenId}/sendMessage/${tok}`;
+    }
+    // If user entered an UltraMsg Instance ID (e.g. "instance12345")
+    if (/^instance\d+$/i.test(trimmed)) {
+      return `https://api.ultramsg.com/${trimmed}/messages/chat`;
+    }
+    return trimmed;
+  };
+
   // Load or generate initial POS data when opening POS tab
   const loadPosDetails = async () => {
     setPosLoading(true);
@@ -402,19 +422,24 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
       return;
     }
 
+    const finalGatewayUrl = buildNormalizedGatewayUrl(whatsappWebhookUrl, whatsappApiToken);
+    if (finalGatewayUrl !== whatsappWebhookUrl) {
+      setWhatsappWebhookUrl(finalGatewayUrl);
+    }
+
     setSavingPosRules(true);
     try {
       const res = await savePosAutomationRules(
         shop.id,
         parsedMin,
-        whatsappWebhookUrl,
+        finalGatewayUrl,
         whatsappApiToken
       );
       if (res.success) {
         onShopUpdated({
           ...shop,
           min_bill_amount: parsedMin,
-          whatsapp_webhook_url: whatsappWebhookUrl.trim() || null,
+          whatsapp_webhook_url: finalGatewayUrl.trim() || null,
           whatsapp_api_token: whatsappApiToken.trim() || null,
         });
         setSuccessMessage('Automated POS Bill Rules & WhatsApp settings saved!');
@@ -427,25 +452,29 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   };
 
   const handleTestWhatsAppGateway = async () => {
-    if (!whatsappWebhookUrl.trim()) {
+    const finalGatewayUrl = buildNormalizedGatewayUrl(whatsappWebhookUrl, whatsappApiToken);
+    if (!finalGatewayUrl) {
       Alert.alert(
-        'WhatsApp Gateway URL Required',
-        'Please enter your WhatsApp Gateway URL (Green-API, UltraMsg, TextMeBot, Meta Cloud API, or Make/Zapier Webhook) first. Tap "📖 User Manual" for step-by-step setup instructions.'
+        'WhatsApp Gateway Required',
+        'Enter your Instance ID / Gateway URL and API Token first. Tap "📖 User Manual" for 2-minute setup.'
       );
       return;
     }
+    if (finalGatewayUrl !== whatsappWebhookUrl) {
+      setWhatsappWebhookUrl(finalGatewayUrl);
+    }
     const targetPhone = testPosPhone.trim() || shopPhone.trim();
     if (!targetPhone) {
-      Alert.alert('Phone Required', 'Enter a phone number in Customer Phone below to send a live test WhatsApp message.');
+      Alert.alert('Phone Required', 'Enter a phone number in Customer Phone below to send a live WhatsApp message.');
       return;
     }
 
     setTestingWhatsApp(true);
     setPosTestResult(null);
     try {
-      const testMessage = `✅ *${shop.name} Background WhatsApp Test*\n\nYour StampUp automated WhatsApp gateway is connected and working in the background! 🎉\n\nDigital Card: ${customerLink}`;
+      const testMessage = `✅ *${shop.name} Automated WhatsApp Connected!*\n\nYour StampUp POS & background WhatsApp automation is live! 🎉\n\nDigital Card: ${customerLink}`;
       const res = await relayWhatsAppOutboxMessage(
-        whatsappWebhookUrl,
+        finalGatewayUrl,
         whatsappApiToken,
         targetPhone,
         testMessage
@@ -459,7 +488,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
       } else {
         setPosTestResult({
           success: false,
-          message: `WhatsApp Gateway Error: ${res.error || 'Failed to send. Check URL & Token in User Manual.'}`,
+          message: `WhatsApp Gateway Error: ${res.error || 'Check Instance ID / URL & Token'}`,
         });
       }
     } catch (e: any) {
@@ -1322,12 +1351,12 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 keyboardType="decimal-pad"
               />
 
-              <Text style={styles.inputLabel}>💬 WhatsApp Gateway URL:</Text>
+              <Text style={styles.inputLabel}>💬 WhatsApp Instance ID or Gateway URL:</Text>
               <TextInput
                 style={styles.input}
                 value={whatsappWebhookUrl}
                 onChangeText={setWhatsappWebhookUrl}
-                placeholder="https://api.green-api.com/... or https://api.ultramsg.com/..."
+                placeholder="Instance ID (e.g. 7103948123) or https://..."
                 placeholderTextColor="#94A3B8"
                 autoCapitalize="none"
               />
@@ -1337,7 +1366,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 style={styles.input}
                 value={whatsappApiToken}
                 onChangeText={setWhatsappApiToken}
-                placeholder="API Token (Optional)"
+                placeholder="API Token"
                 placeholderTextColor="#94A3B8"
                 secureTextEntry
                 autoCapitalize="none"
@@ -1372,9 +1401,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               </View>
             </View>
 
-            {/* Interactive POS Bill Punch Simulator Card */}
+            {/* Live POS Billing Terminal Card */}
             <View style={styles.card}>
-              <Text style={[styles.cardTitle, { marginBottom: 10 }]}>🧪 Punch POS Bill</Text>
+              <Text style={[styles.cardTitle, { marginBottom: 10 }]}>🖥️ Live POS Billing Terminal</Text>
 
               <View style={{ flexDirection: 'row', gap: 10 }}>
                 <View style={{ flex: 1.4 }}>
@@ -1411,9 +1440,34 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 {testPosLoading ? (
                   <ActivityIndicator color="#FFFFFF" size="small" />
                 ) : (
-                  <Text style={styles.primaryButtonText}>🧾 Punch Bill</Text>
+                  <Text style={styles.primaryButtonText}>⚡ Punch Bill</Text>
                 )}
               </TouchableOpacity>
+
+              <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
+                <TouchableOpacity
+                  style={[styles.outlineButton, { flex: 1, marginTop: 0, marginBottom: 0, minHeight: 42, paddingVertical: 8 }]}
+                  onPress={() => {
+                    const posUrl = `${customerWebBase.replace(/\/+$/, '')}/pos.html?key=${encodeURIComponent(posApiKey)}`;
+                    Linking.openURL(posUrl);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.outlineButtonText, { fontSize: 13 }]}>🖥️ Open Web POS</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.outlineButton, { flex: 1, marginTop: 0, marginBottom: 0, minHeight: 42, paddingVertical: 8 }]}
+                  onPress={() => {
+                    const posUrl = `${customerWebBase.replace(/\/+$/, '')}/pos.html?key=${encodeURIComponent(posApiKey)}`;
+                    Clipboard.setStringAsync(posUrl);
+                    Alert.alert('Copied!', 'Web POS Terminal link copied to clipboard.');
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.outlineButtonText, { fontSize: 13 }]}>📋 Copy POS Link</Text>
+                </TouchableOpacity>
+              </View>
 
               {posTestResult && (
                 <View
@@ -1526,7 +1580,25 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             <View style={styles.card}>
               <Text style={[styles.cardTitle, { marginBottom: 10 }]}>🌐 POS Webhook Endpoint</Text>
 
-              <Text style={styles.inputLabel}>Endpoint URL:</Text>
+              <Text style={styles.inputLabel}>1-Click Universal Webhook URL:</Text>
+              <View style={[styles.posKeyBox, { marginBottom: 10 }]}>
+                <Text style={[styles.posKeyText, { fontSize: 12 }]} numberOfLines={1}>
+                  {`${customerWebBase.replace(/\/+$/, '')}/api/pos-webhook?key=${posApiKey}`}
+                </Text>
+                <TouchableOpacity
+                  onPress={() => {
+                    const url = `${customerWebBase.replace(/\/+$/, '')}/api/pos-webhook?key=${posApiKey}`;
+                    Clipboard.setStringAsync(url);
+                    Alert.alert('Copied!', 'Universal POS Webhook URL copied to clipboard.');
+                  }}
+                  style={{ padding: 4 }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: '#2563EB' }}>Copy</Text>
+                </TouchableOpacity>
+              </View>
+
+              <Text style={styles.inputLabel}>Direct Supabase RPC URL:</Text>
               <View style={styles.posKeyBox}>
                 <Text style={[styles.posKeyText, { fontSize: 12 }]} numberOfLines={1}>
                   {getPosWebhookUrl()}
