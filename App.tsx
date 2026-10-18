@@ -38,6 +38,7 @@ import {
 import { NotificationBanner } from './src/components/NotificationBanner';
 import { NotificationCenterModal } from './src/components/NotificationCenterModal';
 import { SoundBridge } from './src/components/SoundBridge';
+import { WhatsAppBridge } from './src/components/WhatsAppBridge';
 
 export default function App() {
   const [session, setSession] = useState<Session | null>(null);
@@ -386,6 +387,7 @@ export default function App() {
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <StatusBar style="dark" />
         <SoundBridge />
+        <WhatsAppBridge />
 
         {/* IN-APP FLOATING NOTIFICATION BANNER */}
         <NotificationBanner onPressBanner={() => setNotificationModalVisible(true)} />

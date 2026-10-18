@@ -63,6 +63,12 @@ import { NotificationCenterModal } from '../components/NotificationCenterModal';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { generateShopSlug } from '../utils/slug';
 import { relayWhatsAppOutboxMessage } from '../utils/posIntegrations';
+import {
+  sendViaWhatsAppBridge,
+  openWhatsAppLinkerModal,
+  subscribeWhatsAppBridgeStatus,
+  WhatsAppBridgeStatus,
+} from '../utils/whatsappBridge';
 import type { Shop, Customer, StampRequest } from '../types';
 
 interface AddStampScreenProps {
@@ -104,6 +110,13 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({
 
   // Auto-WhatsApp State (Default ON as requested)
   const [autoWhatsAppEnabled, setAutoWhatsAppEnabled] = useState<boolean>(true);
+  const [waBridgeStatus, setWaBridgeStatus] = useState<WhatsAppBridgeStatus>('initializing');
+  const dispatchedOutboxIdsRef = useRef<Set<string>>(new Set());
+
+  // Subscribe to Built-In Background WhatsApp Bridge status
+  useEffect(() => {
+    return subscribeWhatsAppBridgeStatus(setWaBridgeStatus);
+  }, []);
 
   // Load Auto-WhatsApp preference on mount
   useEffect(() => {
@@ -149,12 +162,18 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({
           p_text: message,
         });
         outboxId = rpcData?.outbox_id;
+        if (outboxId) {
+          dispatchedOutboxIdsRef.current.add(outboxId);
+        }
         console.log('Background WhatsApp notification queued for:', cleanDigits);
       } catch (rpcErr) {
         console.warn('Background WhatsApp RPC error:', rpcErr);
       }
 
-      // 2. If a WhatsApp Cloud Gateway / Webhook is configured, dispatch directly in background
+      // 2. Built-in Background WhatsApp Web Auto-Sender Bridge (zero external API required)
+      sendViaWhatsAppBridge(targetPhone, message, outboxId);
+
+      // 3. If a WhatsApp Cloud Gateway / Webhook is also configured, dispatch directly in background
       if (shop.whatsapp_webhook_url) {
         relayWhatsAppOutboxMessage(
           shop.whatsapp_webhook_url,
@@ -165,12 +184,12 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({
         );
       }
 
-      // 3. In-app confirmation notification
+      // 4. In-app confirmation notification
       addNotification({
         shopId: shop.id,
         type: 'stamp',
         title: '💬 WhatsApp Sent in Background',
-        message: `Background WhatsApp update queued for ${formatPhoneForDisplay(targetPhone)} (${currentStamps}/${stampsRequired} stamps).`,
+        message: `Background WhatsApp sent to ${formatPhoneForDisplay(targetPhone)} (${currentStamps}/${stampsRequired} stamps).`,
         metadata: { phone: targetPhone, stamps: currentStamps },
       });
       // NOTICE: No Linking.openURL call here! Cashier flow remains 100% uninterrupted.
@@ -195,14 +214,20 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({
           const row = payload.new as any;
           fetchTodayStamps();
           fetchRecentCustomers();
-          if (row && row.status === 'queued' && shop.whatsapp_webhook_url) {
-            relayWhatsAppOutboxMessage(
-              shop.whatsapp_webhook_url,
-              shop.whatsapp_api_token,
-              row.recipient_phone,
-              row.message_text,
-              row.id
-            );
+          if (row && row.status === 'queued') {
+            if (!dispatchedOutboxIdsRef.current.has(row.id)) {
+              dispatchedOutboxIdsRef.current.add(row.id);
+              sendViaWhatsAppBridge(row.recipient_phone, row.message_text, row.id);
+            }
+            if (shop.whatsapp_webhook_url) {
+              relayWhatsAppOutboxMessage(
+                shop.whatsapp_webhook_url,
+                shop.whatsapp_api_token,
+                row.recipient_phone,
+                row.message_text,
+                row.id
+              );
+            }
           }
         }
       )
@@ -1221,24 +1246,51 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({
         {/* ---------------------------------------------------- */}
         <View style={styles.inputCard}>
           <View style={styles.inputHeaderRow}>
-            <Text style={styles.inputSectionLabel}>CUSTOMER PHONE NUMBER</Text>
-            <TouchableOpacity
-              style={[
-                styles.autoWhatsAppPill,
-                autoWhatsAppEnabled ? styles.autoWhatsAppPillActive : styles.autoWhatsAppPillInactive,
-              ]}
-              onPress={toggleAutoWhatsApp}
-              activeOpacity={0.7}
-            >
-              <Text
+            <Text style={styles.inputSectionLabel}>CUSTOMER PHONE</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <TouchableOpacity
                 style={[
-                  styles.autoWhatsAppPillText,
-                  autoWhatsAppEnabled ? styles.autoWhatsAppPillTextActive : styles.autoWhatsAppPillTextInactive,
+                  styles.autoWhatsAppPill,
+                  waBridgeStatus === 'connected' || waBridgeStatus === 'sending'
+                    ? styles.autoWhatsAppPillActive
+                    : { backgroundColor: '#FEF3C7', borderColor: '#FDE68A' },
                 ]}
+                onPress={openWhatsAppLinkerModal}
+                activeOpacity={0.7}
               >
-                💬 WhatsApp: {autoWhatsAppEnabled ? 'ON' : 'OFF'}
-              </Text>
-            </TouchableOpacity>
+                <Text
+                  style={[
+                    styles.autoWhatsAppPillText,
+                    waBridgeStatus === 'connected' || waBridgeStatus === 'sending'
+                      ? styles.autoWhatsAppPillTextActive
+                      : { color: '#B45309' },
+                  ]}
+                >
+                  {waBridgeStatus === 'connected'
+                    ? '✓ Linked'
+                    : waBridgeStatus === 'sending'
+                      ? '⚡ Sending...'
+                      : '🔗 Link WhatsApp'}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.autoWhatsAppPill,
+                  autoWhatsAppEnabled ? styles.autoWhatsAppPillActive : styles.autoWhatsAppPillInactive,
+                ]}
+                onPress={toggleAutoWhatsApp}
+                activeOpacity={0.7}
+              >
+                <Text
+                  style={[
+                    styles.autoWhatsAppPillText,
+                    autoWhatsAppEnabled ? styles.autoWhatsAppPillTextActive : styles.autoWhatsAppPillTextInactive,
+                  ]}
+                >
+                  💬 {autoWhatsAppEnabled ? 'ON' : 'OFF'}
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
           <View style={[styles.phoneInputRow, { marginBottom: 10 }]}>

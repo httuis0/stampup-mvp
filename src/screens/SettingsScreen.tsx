@@ -54,6 +54,12 @@ import {
   saveShopTheme,
   StampThemeOption,
 } from '../utils/shopTheme';
+import {
+  sendViaWhatsAppBridge,
+  openWhatsAppLinkerModal,
+  subscribeWhatsAppBridgeStatus,
+  WhatsAppBridgeStatus,
+} from '../utils/whatsappBridge';
 import type { Shop } from '../types';
 
 type SettingsTab = 'shop' | 'region' | 'security' | 'pos' | 'qr' | 'account';
@@ -346,6 +352,11 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   const [testPosAmount, setTestPosAmount] = useState<string>('25.00');
   const [testPosLoading, setTestPosLoading] = useState<boolean>(false);
   const [posTestResult, setPosTestResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [waBridgeStatus, setWaBridgeStatus] = useState<WhatsAppBridgeStatus>('initializing');
+
+  useEffect(() => {
+    return subscribeWhatsAppBridgeStatus(setWaBridgeStatus);
+  }, []);
 
   // Auto-normalize WhatsApp Gateway input (allows user to enter just Instance ID + Token or full URL)
   const buildNormalizedGatewayUrl = (rawUrlOrId: string, rawToken: string): string => {
@@ -452,27 +463,36 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   };
 
   const handleTestWhatsAppGateway = async () => {
-    const finalGatewayUrl = buildNormalizedGatewayUrl(whatsappWebhookUrl, whatsappApiToken);
-    if (!finalGatewayUrl) {
-      Alert.alert(
-        'WhatsApp Gateway Required',
-        'Enter your Instance ID / Gateway URL and API Token first. Tap "📖 User Manual" for 2-minute setup.'
-      );
-      return;
-    }
-    if (finalGatewayUrl !== whatsappWebhookUrl) {
-      setWhatsappWebhookUrl(finalGatewayUrl);
-    }
     const targetPhone = testPosPhone.trim() || shopPhone.trim();
     if (!targetPhone) {
       Alert.alert('Phone Required', 'Enter a phone number in Customer Phone below to send a live WhatsApp message.');
       return;
     }
 
+    const testMessage = `✅ *${shop.name} Automated WhatsApp Connected!*\n\nYour StampUp POS & background WhatsApp automation is live! 🎉\n\nDigital Card: ${customerLink}`;
+    const finalGatewayUrl = buildNormalizedGatewayUrl(whatsappWebhookUrl, whatsappApiToken);
+
+    if (!finalGatewayUrl) {
+      if (waBridgeStatus !== 'connected') {
+        openWhatsAppLinkerModal();
+        return;
+      }
+      sendViaWhatsAppBridge(targetPhone, testMessage);
+      playNotificationFeedback();
+      setPosTestResult({
+        success: true,
+        message: `✅ Background WhatsApp sending to ${targetPhone}!`,
+      });
+      return;
+    }
+
+    if (finalGatewayUrl !== whatsappWebhookUrl) {
+      setWhatsappWebhookUrl(finalGatewayUrl);
+    }
+
     setTestingWhatsApp(true);
     setPosTestResult(null);
     try {
-      const testMessage = `✅ *${shop.name} Automated WhatsApp Connected!*\n\nYour StampUp POS & background WhatsApp automation is live! 🎉\n\nDigital Card: ${customerLink}`;
       const res = await relayWhatsAppOutboxMessage(
         finalGatewayUrl,
         whatsappApiToken,
@@ -1325,11 +1345,29 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         {/* -------------------------------------------------------- */}
         {activeTab === 'pos' && (
           <View>
-            {/* User Manual Top Action Card */}
-            <View style={[styles.card, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 14 }]}>
-              <Text style={[styles.cardTitle, { marginBottom: 0 }]}>📖 POS & WhatsApp Setup</Text>
+            {/* User Manual & Link WhatsApp Top Action Card */}
+            <View style={[styles.card, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 14, gap: 8 }]}>
               <TouchableOpacity
-                style={[styles.primaryButton, { paddingHorizontal: 16, paddingVertical: 10, minHeight: 40 }]}
+                style={[
+                  styles.primaryButton,
+                  {
+                    flex: 1,
+                    paddingHorizontal: 12,
+                    paddingVertical: 10,
+                    minHeight: 42,
+                    backgroundColor: waBridgeStatus === 'connected' ? '#16A34A' : '#059669',
+                  },
+                ]}
+                onPress={openWhatsAppLinkerModal}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.primaryButtonText, { fontSize: 13 }]}>
+                  {waBridgeStatus === 'connected' ? '✓ WhatsApp Linked' : '🔗 Link WhatsApp'}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.primaryButton, { paddingHorizontal: 14, paddingVertical: 10, minHeight: 42 }]}
                 onPress={() => setPosManualModalVisible(true)}
                 activeOpacity={0.8}
               >
