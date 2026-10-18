@@ -98,3 +98,4 @@ export function subscribeWhatsAppBridgeStatus(cb: StatusListener) {
     _statusListeners.delete(cb);
   };
 }
+

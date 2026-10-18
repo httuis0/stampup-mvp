@@ -463,7 +463,7 @@ BEGIN
   END IF;
 END $$;
 
--- 9. Update get_card RPC to return logo_url to customer web
+-- 9. Update get_card RPC to return logo_url, shop phone, lifetime stats, voucher code, and recent stamp activity timeline
 CREATE OR REPLACE FUNCTION public.get_card(
     p_shop_slug TEXT,
     p_phone TEXT,
@@ -481,23 +481,30 @@ DECLARE
     v_reward_text TEXT;
     v_default_cc TEXT;
     v_shop_num TEXT;
+    v_shop_phone TEXT;
     v_address TEXT;
     v_maps_url TEXT;
     v_stamp_icon TEXT;
     v_logo_url TEXT;
     v_norm_phone TEXT;
     v_stamps INT := 0;
+    v_rewards_given INT := 0;
+    v_total_stamps INT := 0;
+    v_member_since TIMESTAMPTZ;
+    v_last_stamp_at TIMESTAMPTZ;
     v_cust_id UUID;
     v_cust_name TEXT;
+    v_recent_activity JSONB := '[]'::jsonb;
+    v_voucher_code TEXT := NULL;
 BEGIN
-    SELECT id, name, stamps_required, reward_text, default_country_code, shop_number, address, google_maps_url, stamp_icon, logo_url
-    INTO v_shop_id, v_shop_name, v_stamps_req, v_reward_text, v_default_cc, v_shop_num, v_address, v_maps_url, v_stamp_icon, v_logo_url
+    SELECT id, name, stamps_required, reward_text, default_country_code, shop_number, phone, address, google_maps_url, stamp_icon, logo_url
+    INTO v_shop_id, v_shop_name, v_stamps_req, v_reward_text, v_default_cc, v_shop_num, v_shop_phone, v_address, v_maps_url, v_stamp_icon, v_logo_url
     FROM public.shops
     WHERE slug = lower(trim(p_shop_slug));
 
     IF NOT FOUND THEN
-        SELECT id, name, stamps_required, reward_text, default_country_code, shop_number, address, google_maps_url, stamp_icon, logo_url
-        INTO v_shop_id, v_shop_name, v_stamps_req, v_reward_text, v_default_cc, v_shop_num, v_address, v_maps_url, v_stamp_icon, v_logo_url
+        SELECT id, name, stamps_required, reward_text, default_country_code, shop_number, phone, address, google_maps_url, stamp_icon, logo_url
+        INTO v_shop_id, v_shop_name, v_stamps_req, v_reward_text, v_default_cc, v_shop_num, v_shop_phone, v_address, v_maps_url, v_stamp_icon, v_logo_url
         FROM public.shops
         ORDER BY created_at ASC
         LIMIT 1;
@@ -512,8 +519,8 @@ BEGIN
         RETURN jsonb_build_object('status', 'invalid_phone', 'message', 'Please check the phone number.');
     END IF;
 
-    SELECT id, current_stamps, name
-    INTO v_cust_id, v_stamps, v_cust_name
+    SELECT id, current_stamps, COALESCE(rewards_given, 0), name, created_at, last_stamp_at
+    INTO v_cust_id, v_stamps, v_rewards_given, v_cust_name, v_member_since, v_last_stamp_at
     FROM public.customers
     WHERE shop_id = v_shop_id AND phone = v_norm_phone;
 
@@ -522,16 +529,45 @@ BEGIN
         v_cust_name := trim(p_name);
     END IF;
 
+    IF v_cust_id IS NOT NULL THEN
+        SELECT COUNT(*) INTO v_total_stamps
+        FROM public.stamps
+        WHERE customer_id = v_cust_id AND shop_id = v_shop_id;
+
+        v_total_stamps := GREATEST(v_total_stamps, (COALESCE(v_rewards_given, 0) * v_stamps_req) + COALESCE(v_stamps, 0));
+
+        SELECT COALESCE(jsonb_agg(row_to_json(t)), '[]'::jsonb)
+        INTO v_recent_activity
+        FROM (
+            SELECT id, created_at
+            FROM public.stamps
+            WHERE customer_id = v_cust_id AND shop_id = v_shop_id
+            ORDER BY created_at DESC
+            LIMIT 8
+        ) t;
+
+        IF COALESCE(v_stamps, 0) >= v_stamps_req THEN
+            v_voucher_code := 'RWD-' || upper(substr(md5(v_cust_id::text || '-' || COALESCE(v_rewards_given, 0)::text), 1, 6));
+        END IF;
+    END IF;
+
     RETURN jsonb_build_object(
         'status', 'ok',
         'shop_name', v_shop_name,
         'stamps_required', v_stamps_req,
         'reward_text', v_reward_text,
         'current_stamps', COALESCE(v_stamps, 0),
+        'rewards_given', COALESCE(v_rewards_given, 0),
+        'total_stamps_earned', COALESCE(v_total_stamps, 0),
+        'member_since', v_member_since,
+        'last_stamp_at', v_last_stamp_at,
+        'recent_activity', v_recent_activity,
+        'voucher_code', v_voucher_code,
         'customer_name', v_cust_name,
         'is_registered', (v_cust_id IS NOT NULL),
         'default_country_code', v_default_cc,
         'shop_number', v_shop_num,
+        'phone', v_shop_phone,
         'address', v_address,
         'google_maps_url', v_maps_url,
         'stamp_icon', v_stamp_icon,
@@ -542,3 +578,4 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.get_card(TEXT, TEXT, TEXT) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.get_card(TEXT, TEXT) TO anon, authenticated;
+

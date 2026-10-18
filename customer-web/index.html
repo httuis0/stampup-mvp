@@ -869,6 +869,228 @@
     .congrats-btn:active {
       transform: scale(0.98);
     }
+
+    /* Digital Reward Voucher Badge */
+    .voucher-pill-box {
+      margin-top: 10px;
+      background: rgba(255, 255, 255, 0.2);
+      border: 1.5px dashed rgba(255, 255, 255, 0.75);
+      border-radius: 12px;
+      padding: 8px 12px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+    }
+
+    .voucher-live-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #4ADE80;
+      box-shadow: 0 0 0 4px rgba(74, 222, 128, 0.3);
+      animation: pulseDot 1.5s infinite;
+    }
+
+    @keyframes pulseDot {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.25); opacity: 0.75; }
+    }
+
+    .voucher-code-text {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 15px;
+      font-weight: 800;
+      color: #FFFFFF;
+      letter-spacing: 1.2px;
+    }
+
+    /* Dashboard Section Cards */
+    .dash-card {
+      background: #FFFFFF;
+      border-radius: 20px;
+      padding: 18px 16px;
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-md);
+      margin-top: 14px;
+    }
+
+    .dash-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .dash-card-title {
+      font-size: 14px;
+      font-weight: 800;
+      color: #0F172A;
+      letter-spacing: -0.2px;
+    }
+
+    .dash-badge {
+      font-size: 11px;
+      font-weight: 800;
+      padding: 3px 9px;
+      border-radius: 12px;
+      background: #EFF6FF;
+      color: #2563EB;
+      border: 1px solid #BFDBFE;
+    }
+
+    /* Lifetime Stats Grid */
+    .stats-grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    .stat-mini-box {
+      background: #F8FAFC;
+      border: 1px solid #E2E8F0;
+      border-radius: 14px;
+      padding: 10px 8px;
+      text-align: center;
+    }
+
+    .stat-mini-val {
+      font-size: 18px;
+      font-weight: 800;
+      color: #0F172A;
+      line-height: 1.2;
+    }
+
+    .stat-mini-lbl {
+      font-size: 11px;
+      font-weight: 700;
+      color: #64748B;
+      margin-top: 3px;
+    }
+
+    /* VIP Tier Progress Track */
+    .tier-steps-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      font-weight: 700;
+      color: #64748B;
+      margin-bottom: 6px;
+    }
+
+    .tier-step.active {
+      color: #0F172A;
+      font-weight: 800;
+    }
+
+    .tier-bar-bg {
+      width: 100%;
+      height: 8px;
+      background: #F1F5F9;
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .tier-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #F59E0B 0%, #10B981 50%, #2563EB 100%);
+      border-radius: 999px;
+      transition: width 0.5s ease;
+    }
+
+    /* Activity Timeline */
+    .timeline-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .timeline-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 12px;
+      background: #F8FAFC;
+      border: 1px solid #E2E8F0;
+      border-radius: 12px;
+    }
+
+    .timeline-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .timeline-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 10px;
+      background: #EFF6FF;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+    }
+
+    .timeline-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: #0F172A;
+    }
+
+    .timeline-time {
+      font-size: 11px;
+      font-weight: 700;
+      color: #64748B;
+    }
+
+    /* Star Rating Row */
+    .star-rating-row {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin: 8px 0 12px;
+    }
+
+    .star-btn {
+      background: #F8FAFC;
+      border: 1.5px solid #E2E8F0;
+      border-radius: 12px;
+      width: 44px;
+      height: 44px;
+      font-size: 22px;
+      cursor: pointer;
+      transition: all 0.15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .star-btn.selected {
+      background: #FEF3C7;
+      border-color: #F59E0B;
+      transform: scale(1.06);
+    }
+
+    /* Wallet Pass Banner */
+    .wallet-banner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%);
+      color: #FFFFFF;
+      padding: 14px 16px;
+      border-radius: 18px;
+      margin-top: 14px;
+      cursor: pointer;
+      box-shadow: var(--shadow-md);
+      border: 1px solid #334155;
+    }
+
+    .wallet-banner:active {
+      transform: scale(0.98);
+    }
   </style>
 </head>
 <body>
@@ -988,10 +1210,15 @@
               </button>
             </div>
 
-            <!-- Full Card Reward Banner -->
+            <!-- Full Card Reward Banner + Digital Voucher Code -->
             <div class="full-card-banner" id="fullBanner">
               <div class="full-title">🎉 Your card is full!</div>
-              <div class="full-subtitle">Show this to the cashier to claim your reward!</div>
+              <div class="full-subtitle">Show this voucher to the cashier to claim your reward:</div>
+              <div class="voucher-pill-box" id="voucherCodeBox" onclick="copyVoucherCode()">
+                <span class="voucher-live-dot"></span>
+                <span class="voucher-code-text" id="voucherCodeText">RWD-VIP001</span>
+                <span style="font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.9);">📋</span>
+              </div>
             </div>
 
             <!-- Motivational Banner ("Only 2 more coffees...") -->
@@ -1059,6 +1286,80 @@
               </button>
             </div>
           </div>
+        </div>
+      </div>
+
+      <!-- 1-Tap Save Pass to Phone Home Screen Banner -->
+      <div class="wallet-banner" onclick="handleInstallClick()">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 20px;">📲</span>
+          <span style="font-size: 14px; font-weight: 800;">Save Pass to Phone</span>
+        </div>
+        <span style="background: #2563EB; color: #FFF; font-size: 12px; font-weight: 800; padding: 6px 12px; border-radius: 10px;">+ Add</span>
+      </div>
+
+      <!-- Lifetime Loyalty Stats & VIP Tier Progress Card -->
+      <div class="dash-card" id="loyaltyStatsCard">
+        <div class="dash-card-header">
+          <span class="dash-card-title">🏆 Loyalty Status & Stats</span>
+          <span class="dash-badge" id="vipStatusBadge">🥉 Bronze</span>
+        </div>
+        <div class="stats-grid-3">
+          <div class="stat-mini-box">
+            <div class="stat-mini-val" id="statTotalStamps">0</div>
+            <div class="stat-mini-lbl">Total Stamps</div>
+          </div>
+          <div class="stat-mini-box">
+            <div class="stat-mini-val" id="statRewardsRedeemed">0</div>
+            <div class="stat-mini-lbl">Rewards Won</div>
+          </div>
+          <div class="stat-mini-box">
+            <div class="stat-mini-val" id="statMemberSince">New</div>
+            <div class="stat-mini-lbl">Member</div>
+          </div>
+        </div>
+        <div>
+          <div class="tier-steps-row">
+            <span class="tier-step" id="tierStepBronze">🥉 Bronze</span>
+            <span class="tier-step" id="tierStepSilver">🥈 Silver</span>
+            <span class="tier-step" id="tierStepGold">🥇 Gold VIP</span>
+            <span class="tier-step" id="tierStepDiamond">💎 Legend</span>
+          </div>
+          <div class="tier-bar-bg">
+            <div class="tier-bar-fill" id="tierBarFill" style="width: 15%;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stamp & Reward Activity Timeline Card -->
+      <div class="dash-card" id="activityTimelineCard">
+        <div class="dash-card-header">
+          <span class="dash-card-title">📜 Recent Stamp Activity</span>
+          <span class="dash-badge" id="lastVisitBadge">Live</span>
+        </div>
+        <div class="timeline-list" id="activityTimelineList"></div>
+      </div>
+
+      <!-- 1-Tap Star Rating & Google Review Card -->
+      <div class="dash-card" id="reviewCard">
+        <div class="dash-card-header" style="margin-bottom: 4px;">
+          <span class="dash-card-title">⭐ Rate Your Experience</span>
+          <span class="dash-badge" id="ratingThanksBadge" style="display: none; background: #DCFCE7; color: #15803D; border-color: #86EFAC;">✓ Thank You!</span>
+        </div>
+        <div class="star-rating-row" id="starRatingRow">
+          <button type="button" class="star-btn" onclick="selectStarRating(1)">⭐</button>
+          <button type="button" class="star-btn" onclick="selectStarRating(2)">⭐</button>
+          <button type="button" class="star-btn" onclick="selectStarRating(3)">⭐</button>
+          <button type="button" class="star-btn" onclick="selectStarRating(4)">⭐</button>
+          <button type="button" class="star-btn" onclick="selectStarRating(5)">⭐</button>
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <a id="googleReviewBtn" class="btn-secondary" href="#" target="_blank" rel="noopener noreferrer" style="flex: 1; text-decoration: none; font-size: 13px; padding: 10px;">
+            ⭐ Google Review
+          </a>
+          <button type="button" class="btn-secondary" onclick="handleWhatsAppShare()" style="flex: 1; font-size: 13px; padding: 10px; background: #F0FDF4; color: #15803D; border-color: #86EFAC;">
+            🎁 Refer a Friend
+          </button>
         </div>
       </div>
 
@@ -1255,12 +1556,27 @@
       return countrySelect.value + raw;
     }
 
-    // Dynamic PWA Manifest Generator
-    function updateDynamicManifest(shopName, phoneVal, ccVal) {
+    // Dynamic PWA Manifest Generator (Uses Shop Logo Icon when available)
+    function updateDynamicManifest(shopName, phoneVal, ccVal, logoUrl) {
       try {
         const slug = currentSlug || 'my-shop';
         const fullCardUrl = window.location.origin + '/c/' + slug + 
           (phoneVal ? ('?phone=' + encodeURIComponent(phoneVal) + '&cc=' + encodeURIComponent(ccVal || '')) : '');
+
+        if (logoUrl) {
+          const touchIcon = document.querySelector('link[rel="apple-touch-icon"]');
+          if (touchIcon) touchIcon.setAttribute('href', logoUrl);
+        }
+
+        const iconsList = logoUrl
+          ? [
+              { src: logoUrl, sizes: '192x192 512x512', type: 'image/png', purpose: 'any maskable' },
+              { src: '/icon.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' }
+            ]
+          : [
+              { src: '/icon.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
+              { src: '/icon.svg', sizes: '192x192 512x512', type: 'image/svg+xml', purpose: 'any maskable' }
+            ];
         
         const manifestObj = {
           name: `${shopName || 'StampUp'} - Stamp Card`,
@@ -1271,10 +1587,7 @@
           display: 'standalone',
           background_color: '#F8FAFC',
           theme_color: '#0F172A',
-          icons: [
-            { src: '/icon.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
-            { src: '/icon.svg', sizes: '192x192 512x512', type: 'image/svg+xml', purpose: 'any maskable' }
-          ]
+          icons: iconsList
         };
         const stringManifest = JSON.stringify(manifestObj);
         const blob = new Blob([stringManifest], { type: 'application/json' });
@@ -1767,12 +2080,64 @@
       return '⭐';
     }
 
+    let activeCardData = null;
+
+    function formatRelativeTime(isoStr) {
+      if (!isoStr) return 'Recently';
+      const diffSec = Math.max(0, Math.floor((Date.now() - new Date(isoStr).getTime()) / 1000));
+      if (diffSec < 60) return 'Just now';
+      if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m ago`;
+      if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}h ago`;
+      if (diffSec < 604800) return `${Math.floor(diffSec / 86400)}d ago`;
+      const d = new Date(isoStr);
+      return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    }
+
+    function copyVoucherCode() {
+      const el = document.getElementById('voucherCodeText');
+      if (!el) return;
+      const code = el.textContent;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(code);
+      }
+      const prev = el.textContent;
+      el.textContent = '✓ COPIED!';
+      setTimeout(() => { el.textContent = prev; }, 1500);
+    }
+
+    function selectStarRating(stars) {
+      const btns = document.querySelectorAll('#starRatingRow .star-btn');
+      btns.forEach((b, idx) => {
+        if (idx < stars) {
+          b.classList.add('selected');
+        } else {
+          b.classList.remove('selected');
+        }
+      });
+      const badge = document.getElementById('ratingThanksBadge');
+      if (badge) badge.style.display = 'inline-block';
+      try {
+        localStorage.setItem('stampup_rating_' + currentSlug, String(stars));
+      } catch (e) {}
+      if (stars >= 4) {
+        const revBtn = document.getElementById('googleReviewBtn');
+        if (revBtn && revBtn.href && revBtn.href !== '#' && !revBtn.href.endsWith('#')) {
+          setTimeout(() => {
+            window.open(revBtn.href, '_blank');
+          }, 350);
+        }
+      }
+    }
+
     // Render Circles & Stamps
     function displayResult(data, isLiveApproval) {
+      activeCardData = data;
       shopNameEl.textContent = data.shop_name;
       document.title = `${data.shop_name} - Loyalty Card`;
       const cur = data.current_stamps || 0;
       const total = data.stamps_required || 8;
+      const rewardsGiven = data.rewards_given || 0;
+      const totalEarned = data.total_stamps_earned || ((rewardsGiven * total) + cur);
       const fullPhone = getFullPhone();
       const stampIcon = getStampIcon(data);
 
@@ -1781,7 +2146,7 @@
         const currentCc = countrySelect.value;
         const newUrl = '/c/' + currentSlug + '?phone=' + encodeURIComponent(cleanPhone) + '&cc=' + encodeURIComponent(currentCc) + '&icon=' + encodeURIComponent(stampIcon);
         window.history.replaceState(null, '', newUrl);
-        updateDynamicManifest(data.shop_name, cleanPhone, currentCc);
+        updateDynamicManifest(data.shop_name, cleanPhone, currentCc, data.logo_url);
       } catch (e) {}
 
       // Handle Customer Name Greeting
@@ -1795,27 +2160,94 @@
         if (greetingName) greetingName.textContent = 'Loyalty Member';
       }
 
-      // Handle VIP Loyalty Tier Badge
+      // Handle VIP Loyalty Tier Badge & Lifetime Stats Card
       const tierBadge = document.getElementById('memberTierBadge');
-      if (tierBadge) {
-        if (cur >= total) {
+      const vipStatusBadge = document.getElementById('vipStatusBadge');
+      const tierBarFill = document.getElementById('tierBarFill');
+      let tierLabel = '🥉 Bronze';
+      let tierPct = Math.min(100, Math.max(12, Math.round((totalEarned / (total * 3)) * 100)));
+
+      if (rewardsGiven >= 3 || totalEarned >= total * 3) {
+        tierLabel = '💎 Legend VIP';
+        tierPct = 100;
+        if (tierBadge) {
+          tierBadge.textContent = '💎 Legend VIP';
+          tierBadge.style.background = '#EFF6FF';
+          tierBadge.style.color = '#1D4ED8';
+          tierBadge.style.borderColor = '#BFDBFE';
+          tierBadge.style.display = 'inline-block';
+        }
+      } else if (cur >= total || rewardsGiven >= 1 || totalEarned >= total) {
+        tierLabel = '🥇 Gold VIP';
+        tierPct = Math.max(68, tierPct);
+        if (tierBadge) {
           tierBadge.textContent = '🥇 Gold VIP';
           tierBadge.style.background = '#FEF3C7';
           tierBadge.style.color = '#B45309';
           tierBadge.style.borderColor = '#FDE68A';
           tierBadge.style.display = 'inline-block';
-        } else if (cur >= Math.ceil(total / 2)) {
+        }
+      } else if (cur >= Math.ceil(total / 2)) {
+        tierLabel = '🥈 Silver Member';
+        tierPct = Math.max(38, tierPct);
+        if (tierBadge) {
           tierBadge.textContent = '🥈 Silver Member';
           tierBadge.style.background = '#F1F5F9';
           tierBadge.style.color = '#475569';
           tierBadge.style.borderColor = '#CBD5E1';
           tierBadge.style.display = 'inline-block';
-        } else {
+        }
+      } else {
+        tierLabel = '🥉 Bronze Member';
+        if (tierBadge) {
           tierBadge.textContent = '🥉 Bronze Member';
           tierBadge.style.background = '#FFFBEB';
           tierBadge.style.color = '#92400E';
           tierBadge.style.borderColor = '#FDE68A';
           tierBadge.style.display = 'inline-block';
+        }
+      }
+
+      if (vipStatusBadge) vipStatusBadge.textContent = tierLabel;
+      if (tierBarFill) tierBarFill.style.width = `${tierPct}%`;
+
+      const statTotalEl = document.getElementById('statTotalStamps');
+      const statRewardsEl = document.getElementById('statRewardsRedeemed');
+      const statMemberEl = document.getElementById('statMemberSince');
+      if (statTotalEl) statTotalEl.textContent = String(totalEarned);
+      if (statRewardsEl) statRewardsEl.textContent = String(rewardsGiven);
+      if (statMemberEl) {
+        if (data.member_since) {
+          const d = new Date(data.member_since);
+          statMemberEl.textContent = d.toLocaleDateString(undefined, { month: 'short', year: '2-digit' });
+        } else {
+          statMemberEl.textContent = 'Active';
+        }
+      }
+
+      // Render Recent Stamp Activity Timeline
+      const timelineList = document.getElementById('activityTimelineList');
+      const lastVisitBadge = document.getElementById('lastVisitBadge');
+      if (lastVisitBadge) {
+        lastVisitBadge.textContent = data.last_stamp_at ? formatRelativeTime(data.last_stamp_at) : 'Live';
+      }
+      if (timelineList) {
+        const acts = Array.isArray(data.recent_activity) ? data.recent_activity : [];
+        if (acts.length === 0 && cur === 0) {
+          timelineList.innerHTML = `<div class="timeline-row"><div class="timeline-left"><div class="timeline-icon">${stampIcon}</div><div class="timeline-title">Ready for your first stamp!</div></div><div class="timeline-time">Today</div></div>`;
+        } else if (acts.length === 0) {
+          timelineList.innerHTML = `<div class="timeline-row"><div class="timeline-left"><div class="timeline-icon">${stampIcon}</div><div class="timeline-title">${cur} Loyalty Stamp${cur === 1 ? '' : 's'} Active</div></div><div class="timeline-time">${formatRelativeTime(data.last_stamp_at)}</div></div>`;
+        } else {
+          timelineList.innerHTML = acts.slice(0, 5).map((item, idx) => {
+            const isLatestReward = idx === 0 && cur >= total;
+            return `<div class="timeline-row">
+              <div class="timeline-left">
+                <div class="timeline-icon">${isLatestReward ? '🎁' : stampIcon}</div>
+                <div class="timeline-title">${isLatestReward ? `Reward Unlocked (${data.reward_text})` : '+1 Loyalty Stamp Earned'}</div>
+              </div>
+              <div class="timeline-time">${formatRelativeTime(item.created_at)}</div>
+            </div>`;
+          }).join('');
         }
       }
 
@@ -1836,6 +2268,13 @@
 
       stampCountText.textContent = `${cur} of ${total} stamps`;
       rewardText.textContent = `🎁 Free ${data.reward_text} at ${total} stamps`;
+
+      // Update Digital Voucher Code when full
+      const voucherTextEl = document.getElementById('voucherCodeText');
+      if (voucherTextEl) {
+        const fallbackCode = 'RWD-' + (fullPhone.replace(/[^0-9]/g, '').slice(-4) || '8899') + 'VIP';
+        voucherTextEl.textContent = data.voucher_code || fallbackCode;
+      }
 
       // Update Motivational Banner
       const motIcon = document.getElementById('motivationalIcon');
@@ -1883,12 +2322,18 @@
       // Render Barcode SVG on Card Back
       renderBarcodeSvg(fullPhone);
 
-      // Configure Shop Hub Actions (Map, Phone, WhatsApp)
+      // Configure Shop Hub Actions (Map, Phone, Google Review, WhatsApp)
       const hubMapBtn = document.getElementById('hubMapBtn');
       const hubCallBtn = document.getElementById('hubCallBtn');
+      const googleReviewBtn = document.getElementById('googleReviewBtn');
+      const mapUrl = data.google_maps_url || (data.address ? `https://maps.google.com/?q=${encodeURIComponent(data.address)}` : `https://maps.google.com/?q=${encodeURIComponent(data.shop_name || 'Coffee Shop')}`);
+
+      if (googleReviewBtn && mapUrl) {
+        googleReviewBtn.href = mapUrl;
+      }
+
       if (hubMapBtn) {
-        const mapUrl = data.google_maps_url || (data.address ? `https://maps.google.com/?q=${encodeURIComponent(data.address)}` : null);
-        if (mapUrl) {
+        if (data.google_maps_url || data.address) {
           hubMapBtn.href = mapUrl;
           hubMapBtn.style.display = 'flex';
         } else {
@@ -1903,6 +2348,18 @@
           hubCallBtn.style.display = 'none';
         }
       }
+
+      // Restore saved star rating if any
+      try {
+        const savedRating = parseInt(localStorage.getItem('stampup_rating_' + currentSlug) || '0', 10);
+        if (savedRating > 0) {
+          const btns = document.querySelectorAll('#starRatingRow .star-btn');
+          btns.forEach((b, idx) => {
+            if (idx < savedRating) b.classList.add('selected');
+            else b.classList.remove('selected');
+          });
+        }
+      } catch (e) {}
 
       // Check for New Stamp Celebration
       const lastSeenStr = localStorage.getItem('stampup_seen_stamps_' + fullPhone);
@@ -2028,10 +2485,10 @@
     }
 
     function handleWhatsAppShare() {
-      const sName = (shopData && shopData.name) || document.title.replace(' - Loyalty Card', '') || 'this shop';
-      const rText = (shopData && shopData.reward_text) || 'free rewards';
-      const shareUrl = window.location.href;
-      const text = `Hey! I'm collecting loyalty stamps at *${sName}* to earn *${rText}* 🎁\n\nYou can collect stamps too with your phone (no app download needed):\n${shareUrl}`;
+      const sName = (activeCardData && activeCardData.shop_name) || document.title.replace(' - Loyalty Card', '') || 'this shop';
+      const rText = (activeCardData && activeCardData.reward_text) || 'free rewards';
+      const shareUrl = window.location.origin + '/c/' + (currentSlug || '');
+      const text = `🎁 Hey! Join me at *${sName}* and collect loyalty stamps to earn a free *${rText}*!\n\nGet your digital stamp card here (no app download needed):\n${shareUrl}`;
       const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
       window.open(waUrl, '_blank');
     }
