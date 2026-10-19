@@ -60,7 +60,7 @@ import {
   subscribeWhatsAppBridgeStatus,
   WhatsAppBridgeStatus,
 } from '../utils/whatsappBridge';
-import type { Shop } from '../types';
+import type { Shop, FeaturedMenuItem } from '../types';
 
 type SettingsTab = 'shop' | 'region' | 'security' | 'pos' | 'qr' | 'account';
 
@@ -119,6 +119,16 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isEditingShopDetails, setIsEditingShopDetails] = useState<boolean>(false);
+
+  // Promo Banner & Featured Menu State
+  const [promoBanner, setPromoBanner] = useState<string>(shop.promo_banner || '');
+  const [featuredItems, setFeaturedItems] = useState<FeaturedMenuItem[]>(
+    Array.isArray(shop.featured_items) ? shop.featured_items : []
+  );
+  const [newItemName, setNewItemName] = useState<string>('');
+  const [newItemPrice, setNewItemPrice] = useState<string>('');
+  const [newItemEmoji, setNewItemEmoji] = useState<string>('☕');
+  const [savingPromoMenu, setSavingPromoMenu] = useState<boolean>(false);
 
   // Modals
   const [privacyModalVisible, setPrivacyModalVisible] = useState<boolean>(false);
@@ -275,12 +285,43 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     setShopGoogleMapsUrl(shop.google_maps_url || null);
     setStampsRequired(shop.stamps_required);
     setRewardText(shop.reward_text);
+    setPromoBanner(shop.promo_banner || '');
+    setFeaturedItems(Array.isArray(shop.featured_items) ? shop.featured_items : []);
     setSelectedCountry(findCountryByDialCode(shop.default_country_code || '+971'));
     getShopTheme(shop.id, shop.stamp_icon).then(setSelectedTheme);
     setSuccessMessage(null);
     setErrorMessage(null);
     setIsEditingShopDetails(false);
   }, [shop]);
+
+  const handleSavePromoAndMenu = async (updatedItems?: FeaturedMenuItem[]) => {
+    const itemsToSave = updatedItems !== undefined ? updatedItems : featuredItems;
+    setSavingPromoMenu(true);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    try {
+      const { data, error } = await supabase
+        .from('shops')
+        .update({
+          promo_banner: promoBanner.trim() || null,
+          featured_items: itemsToSave,
+        })
+        .eq('id', shop.id)
+        .select()
+        .single();
+
+      if (error) {
+        setErrorMessage(error.message || 'Could not save promo banner & menu.');
+      } else if (data) {
+        onShopUpdated(data as Shop);
+        setSuccessMessage('Customer Card Promo Banner & Featured Menu updated!');
+      }
+    } catch (err: any) {
+      setErrorMessage(err?.message || 'Could not save promo banner & menu.');
+    } finally {
+      setSavingPromoMenu(false);
+    }
+  };
 
   // Customer page web link
   const slug = shop.slug || generateShopSlug(shop.name);
@@ -1167,6 +1208,116 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   ) : null}
                 </View>
               </View>
+            </View>
+
+            {/* Customer Card Promo Banner & Featured Menu Card */}
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>📢 Promo Banner & Featured Menu</Text>
+
+              <Text style={[styles.inputLabel, { marginTop: 10 }]}>🔥 Flash Offer / Promo Banner:</Text>
+              <TextInput
+                style={styles.input}
+                value={promoBanner}
+                onChangeText={setPromoBanner}
+                placeholder="e.g. Happy Hour 3-6PM: Double Stamps on all Karak!"
+                placeholderTextColor="#94A3B8"
+              />
+
+              <Text style={[styles.inputLabel, { marginTop: 12 }]}>🍽️ Featured Menu Items:</Text>
+
+              {featuredItems.length > 0 && (
+                <View style={{ gap: 6, marginBottom: 10 }}>
+                  {featuredItems.map((it, idx) => (
+                    <View
+                      key={idx}
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        backgroundColor: '#F8FAFC',
+                        borderWidth: 1,
+                        borderColor: '#E2E8F0',
+                        borderRadius: 10,
+                        paddingHorizontal: 10,
+                        paddingVertical: 8,
+                      }}
+                    >
+                      <Text style={{ fontSize: 13, fontWeight: '700', color: '#0F172A' }}>
+                        {it.icon || '🍽️'} {it.name} — <Text style={{ color: '#2563EB' }}>{it.price}</Text>
+                      </Text>
+                      <TouchableOpacity
+                        onPress={() => {
+                          const next = featuredItems.filter((_, i) => i !== idx);
+                          setFeaturedItems(next);
+                        }}
+                      >
+                        <Text style={{ fontSize: 13, fontWeight: '800', color: '#DC2626' }}>✕</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </View>
+              )}
+
+              <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center', marginBottom: 10 }}>
+                <TextInput
+                  style={[styles.input, { width: 46, textAlign: 'center', marginBottom: 0, paddingHorizontal: 4 }]}
+                  value={newItemEmoji}
+                  onChangeText={setNewItemEmoji}
+                  placeholder="☕"
+                />
+                <TextInput
+                  style={[styles.input, { flex: 1.4, marginBottom: 0 }]}
+                  value={newItemName}
+                  onChangeText={setNewItemName}
+                  placeholder="Item name"
+                  placeholderTextColor="#94A3B8"
+                />
+                <TextInput
+                  style={[styles.input, { flex: 0.9, marginBottom: 0 }]}
+                  value={newItemPrice}
+                  onChangeText={setNewItemPrice}
+                  placeholder="AED 12"
+                  placeholderTextColor="#94A3B8"
+                />
+                <TouchableOpacity
+                  style={{
+                    backgroundColor: '#0F172A',
+                    paddingHorizontal: 12,
+                    paddingVertical: 11,
+                    borderRadius: 10,
+                  }}
+                  onPress={() => {
+                    if (!newItemName.trim()) return;
+                    const next: FeaturedMenuItem[] = [
+                      ...featuredItems,
+                      {
+                        name: newItemName.trim(),
+                        price: newItemPrice.trim() || '',
+                        icon: newItemEmoji.trim() || '☕',
+                      },
+                    ];
+                    setFeaturedItems(next);
+                    setNewItemName('');
+                    setNewItemPrice('');
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: '800' }}>+ Add</Text>
+                </TouchableOpacity>
+              </View>
+
+              <TouchableOpacity
+                style={[styles.primaryButton, savingPromoMenu && styles.buttonDisabled]}
+                onPress={() => handleSavePromoAndMenu()}
+                disabled={savingPromoMenu}
+                activeOpacity={0.8}
+              >
+                {savingPromoMenu ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <Text style={styles.primaryButtonText}>Save Promo & Menu</Text>
+                )}
+              </TouchableOpacity>
             </View>
 
             {/* My Branches Section */}

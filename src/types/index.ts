@@ -2,6 +2,12 @@
 // TypeScript Type Definitions for StampUp
 // ============================================================
 
+export interface FeaturedMenuItem {
+  icon: string;
+  name: string;
+  price: string;
+}
+
 export interface Shop {
   id: string;
   owner_id: string;
@@ -23,6 +29,8 @@ export interface Shop {
   min_bill_amount?: number | null;
   whatsapp_webhook_url?: string | null;
   whatsapp_api_token?: string | null;
+  promo_banner?: string | null;
+  featured_items?: FeaturedMenuItem[] | null;
   created_at: string;
 }
 
@@ -41,6 +49,7 @@ export interface Customer {
   shop_id: string;
   phone: string;
   name?: string | null;
+  birthday?: string | null;
   current_stamps: number;
   rewards_given: number;
   last_stamp_at: string | null;
@@ -51,6 +60,7 @@ export interface Stamp {
   id: string;
   shop_id: string;
   customer_id: string;
+  amount?: number | null;
   created_by: string;
   created_at: string;
 }

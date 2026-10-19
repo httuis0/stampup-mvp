@@ -7,14 +7,22 @@
 -- 0. Enable pg_net for 100% server-side background HTTP requests (even when app is closed)
 CREATE EXTENSION IF NOT EXISTS pg_net;
 
--- 1. Add logo_url, POS API key, terminal code, minimum bill limit, and WhatsApp gateway to shops
+-- 1. Add logo_url, POS API key, terminal code, minimum bill limit, WhatsApp gateway, promo banner, and digital menu to shops
 ALTER TABLE public.shops
 ADD COLUMN IF NOT EXISTS logo_url TEXT,
 ADD COLUMN IF NOT EXISTS api_key TEXT UNIQUE,
 ADD COLUMN IF NOT EXISTS pos_terminal_code TEXT,
 ADD COLUMN IF NOT EXISTS min_bill_amount NUMERIC DEFAULT 0,
 ADD COLUMN IF NOT EXISTS whatsapp_webhook_url TEXT,
-ADD COLUMN IF NOT EXISTS whatsapp_api_token TEXT;
+ADD COLUMN IF NOT EXISTS whatsapp_api_token TEXT,
+ADD COLUMN IF NOT EXISTS promo_banner TEXT,
+ADD COLUMN IF NOT EXISTS featured_items JSONB DEFAULT '[]'::jsonb;
+
+ALTER TABLE public.customers
+ADD COLUMN IF NOT EXISTS birthday TEXT;
+
+ALTER TABLE public.stamps
+ADD COLUMN IF NOT EXISTS amount NUMERIC DEFAULT 0;
 
 -- Generate initial API keys and terminal codes for existing shops if null
 UPDATE public.shops
@@ -25,10 +33,10 @@ SET
 WHERE api_key IS NULL OR pos_terminal_code IS NULL OR min_bill_amount IS NULL;
 
 -- 2. Grant SELECT and UPDATE permissions for the new columns
-GRANT SELECT (id, name, slug, stamps_required, reward_text, default_country_code, shop_number, phone, address, latitude, longitude, google_maps_url, stamp_icon, logo_url, api_key, pos_terminal_code, min_bill_amount, whatsapp_webhook_url, whatsapp_api_token)
+GRANT SELECT (id, name, slug, stamps_required, reward_text, default_country_code, shop_number, phone, address, latitude, longitude, google_maps_url, stamp_icon, logo_url, api_key, pos_terminal_code, min_bill_amount, whatsapp_webhook_url, whatsapp_api_token, promo_banner, featured_items)
 ON public.shops TO anon, authenticated;
 
-GRANT UPDATE (name, slug, stamps_required, reward_text, default_country_code, shop_number, phone, address, latitude, longitude, google_maps_url, stamp_icon, logo_url, min_bill_amount, whatsapp_webhook_url, whatsapp_api_token)
+GRANT UPDATE (name, slug, stamps_required, reward_text, default_country_code, shop_number, phone, address, latitude, longitude, google_maps_url, stamp_icon, logo_url, min_bill_amount, whatsapp_webhook_url, whatsapp_api_token, promo_banner, featured_items)
 ON public.shops TO authenticated;
 
 -- 3. Ensure whatsapp_outbox table exists for automated background WhatsApp delivery
@@ -321,8 +329,8 @@ BEGIN
       last_stamp_at = now()
   WHERE id = v_cust_id;
 
-  INSERT INTO public.stamps (customer_id, shop_id, created_by)
-  VALUES (v_cust_id, v_shop.id, v_shop.owner_id);
+  INSERT INTO public.stamps (customer_id, shop_id, created_by, amount)
+  VALUES (v_cust_id, v_shop.id, v_shop.owner_id, COALESCE(p_amount, 0));
 
   -- F. Build Automated WhatsApp Message & Digital Card Link
   v_card_url := 'https://stampup-cards.vercel.app/c/' || COALESCE(v_shop.slug, 'shop') || '?phone=' || replace(v_norm_phone, '+', '%2B');
@@ -463,7 +471,7 @@ BEGIN
   END IF;
 END $$;
 
--- 9. Update get_card RPC to return logo_url, shop phone, lifetime stats, voucher code, and recent stamp activity timeline
+-- 9. Update get_card RPC to return logo_url, shop phone, promo_banner, featured_items, customer_birthday, lifetime stats, voucher code, and recent stamp activity timeline
 CREATE OR REPLACE FUNCTION public.get_card(
     p_shop_slug TEXT,
     p_phone TEXT,
@@ -486,6 +494,8 @@ DECLARE
     v_maps_url TEXT;
     v_stamp_icon TEXT;
     v_logo_url TEXT;
+    v_promo_banner TEXT;
+    v_featured_items JSONB;
     v_norm_phone TEXT;
     v_stamps INT := 0;
     v_rewards_given INT := 0;
@@ -494,17 +504,18 @@ DECLARE
     v_last_stamp_at TIMESTAMPTZ;
     v_cust_id UUID;
     v_cust_name TEXT;
+    v_cust_birthday TEXT;
     v_recent_activity JSONB := '[]'::jsonb;
     v_voucher_code TEXT := NULL;
 BEGIN
-    SELECT id, name, stamps_required, reward_text, default_country_code, shop_number, phone, address, google_maps_url, stamp_icon, logo_url
-    INTO v_shop_id, v_shop_name, v_stamps_req, v_reward_text, v_default_cc, v_shop_num, v_shop_phone, v_address, v_maps_url, v_stamp_icon, v_logo_url
+    SELECT id, name, stamps_required, reward_text, default_country_code, shop_number, phone, address, google_maps_url, stamp_icon, logo_url, promo_banner, COALESCE(featured_items, '[]'::jsonb)
+    INTO v_shop_id, v_shop_name, v_stamps_req, v_reward_text, v_default_cc, v_shop_num, v_shop_phone, v_address, v_maps_url, v_stamp_icon, v_logo_url, v_promo_banner, v_featured_items
     FROM public.shops
     WHERE slug = lower(trim(p_shop_slug));
 
     IF NOT FOUND THEN
-        SELECT id, name, stamps_required, reward_text, default_country_code, shop_number, phone, address, google_maps_url, stamp_icon, logo_url
-        INTO v_shop_id, v_shop_name, v_stamps_req, v_reward_text, v_default_cc, v_shop_num, v_shop_phone, v_address, v_maps_url, v_stamp_icon, v_logo_url
+        SELECT id, name, stamps_required, reward_text, default_country_code, shop_number, phone, address, google_maps_url, stamp_icon, logo_url, promo_banner, COALESCE(featured_items, '[]'::jsonb)
+        INTO v_shop_id, v_shop_name, v_stamps_req, v_reward_text, v_default_cc, v_shop_num, v_shop_phone, v_address, v_maps_url, v_stamp_icon, v_logo_url, v_promo_banner, v_featured_items
         FROM public.shops
         ORDER BY created_at ASC
         LIMIT 1;
@@ -519,8 +530,8 @@ BEGIN
         RETURN jsonb_build_object('status', 'invalid_phone', 'message', 'Please check the phone number.');
     END IF;
 
-    SELECT id, current_stamps, COALESCE(rewards_given, 0), name, created_at, last_stamp_at
-    INTO v_cust_id, v_stamps, v_rewards_given, v_cust_name, v_member_since, v_last_stamp_at
+    SELECT id, current_stamps, COALESCE(rewards_given, 0), name, birthday, created_at, last_stamp_at
+    INTO v_cust_id, v_stamps, v_rewards_given, v_cust_name, v_cust_birthday, v_member_since, v_last_stamp_at
     FROM public.customers
     WHERE shop_id = v_shop_id AND phone = v_norm_phone;
 
@@ -539,7 +550,7 @@ BEGIN
         SELECT COALESCE(jsonb_agg(row_to_json(t)), '[]'::jsonb)
         INTO v_recent_activity
         FROM (
-            SELECT id, created_at
+            SELECT id, created_at, COALESCE(amount, 0) AS amount
             FROM public.stamps
             WHERE customer_id = v_cust_id AND shop_id = v_shop_id
             ORDER BY created_at DESC
@@ -564,6 +575,7 @@ BEGIN
         'recent_activity', v_recent_activity,
         'voucher_code', v_voucher_code,
         'customer_name', v_cust_name,
+        'customer_birthday', v_cust_birthday,
         'is_registered', (v_cust_id IS NOT NULL),
         'default_country_code', v_default_cc,
         'shop_number', v_shop_num,
@@ -571,11 +583,66 @@ BEGIN
         'address', v_address,
         'google_maps_url', v_maps_url,
         'stamp_icon', v_stamp_icon,
-        'logo_url', v_logo_url
+        'logo_url', v_logo_url,
+        'promo_banner', v_promo_banner,
+        'featured_items', v_featured_items
     );
 END;
 $$;
 
 GRANT EXECUTE ON FUNCTION public.get_card(TEXT, TEXT, TEXT) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.get_card(TEXT, TEXT) TO anon, authenticated;
+
+-- 10. Save Customer Birthday RPC (Allows customer to set their birthday MM-DD on their digital pass)
+CREATE OR REPLACE FUNCTION public.save_customer_birthday(
+    p_shop_slug TEXT,
+    p_phone TEXT,
+    p_birthday TEXT
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+    v_shop_id UUID;
+    v_default_cc TEXT;
+    v_norm_phone TEXT;
+    v_cust_id UUID;
+BEGIN
+    SELECT id, default_country_code INTO v_shop_id, v_default_cc
+    FROM public.shops
+    WHERE slug = lower(trim(p_shop_slug));
+
+    IF NOT FOUND THEN
+        SELECT id, default_country_code INTO v_shop_id, v_default_cc
+        FROM public.shops
+        ORDER BY created_at ASC
+        LIMIT 1;
+    END IF;
+
+    v_norm_phone := public.normalize_phone(p_phone, COALESCE(v_default_cc, '+971'));
+    IF v_norm_phone IS NULL THEN
+        RETURN jsonb_build_object('status', 'invalid_phone');
+    END IF;
+
+    SELECT id INTO v_cust_id
+    FROM public.customers
+    WHERE shop_id = v_shop_id AND phone = v_norm_phone;
+
+    IF v_cust_id IS NOT NULL THEN
+        UPDATE public.customers
+        SET birthday = trim(p_birthday)
+        WHERE id = v_cust_id;
+    ELSE
+        INSERT INTO public.customers (shop_id, phone, current_stamps, rewards_given, birthday)
+        VALUES (v_shop_id, v_norm_phone, 0, 0, trim(p_birthday));
+    END IF;
+
+    RETURN jsonb_build_object('status', 'ok', 'birthday', trim(p_birthday));
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.save_customer_birthday(TEXT, TEXT, TEXT) TO anon, authenticated;
+
 

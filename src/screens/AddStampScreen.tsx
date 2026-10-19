@@ -69,6 +69,7 @@ import {
   subscribeWhatsAppBridgeStatus,
   WhatsAppBridgeStatus,
 } from '../utils/whatsappBridge';
+import { BarcodeScannerModal } from '../components/BarcodeScannerModal';
 import type { Shop, Customer, StampRequest } from '../types';
 
 interface AddStampScreenProps {
@@ -107,6 +108,7 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({
     findCountryByDialCode(shop.default_country_code || '+971')
   );
   const [countryModalVisible, setCountryModalVisible] = useState<boolean>(false);
+  const [scannerVisible, setScannerVisible] = useState<boolean>(false);
 
   // Auto-WhatsApp State (Default ON as requested)
   const [autoWhatsAppEnabled, setAutoWhatsAppEnabled] = useState<boolean>(true);
@@ -1251,6 +1253,18 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({
               <TouchableOpacity
                 style={[
                   styles.autoWhatsAppPill,
+                  { backgroundColor: '#EFF6FF', borderColor: '#BFDBFE' },
+                ]}
+                onPress={() => setScannerVisible(true)}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.autoWhatsAppPillText, { color: '#1D4ED8' }]}>
+                  📸 Scan
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.autoWhatsAppPill,
                   waBridgeStatus === 'connected' || waBridgeStatus === 'sending'
                     ? styles.autoWhatsAppPillActive
                     : { backgroundColor: '#FEF3C7', borderColor: '#FDE68A' },
@@ -1736,6 +1750,16 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({
           </View>
         </View>
       </Modal>
+
+      <BarcodeScannerModal
+        visible={scannerVisible}
+        customers={recentCustomers}
+        stampsRequired={shop.stamps_required}
+        onClose={() => setScannerVisible(false)}
+        onScannedPhone={(scannedPhone) => {
+          executeConfirmedStamp(scannedPhone);
+        }}
+      />
     </KeyboardAvoidingView>
   );
 };

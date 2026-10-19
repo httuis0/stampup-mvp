@@ -1091,6 +1091,94 @@
     .wallet-banner:active {
       transform: scale(0.98);
     }
+
+    /* Flash Promo Banner */
+    .flash-promo-banner {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      background: linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%);
+      border: 1.5px solid #F59E0B;
+      color: #92400E;
+      padding: 10px 14px;
+      border-radius: 16px;
+      margin-bottom: 14px;
+      font-size: 13px;
+      font-weight: 800;
+      text-align: center;
+      box-shadow: var(--shadow-sm);
+    }
+
+    /* Featured Menu Grid */
+    .menu-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+
+    .menu-item-box {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #F8FAFC;
+      border: 1px solid #E2E8F0;
+      border-radius: 14px;
+      padding: 10px 12px;
+    }
+
+    .menu-item-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .menu-item-name {
+      font-size: 12px;
+      font-weight: 800;
+      color: #0F172A;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .menu-item-price {
+      font-size: 12px;
+      font-weight: 800;
+      color: #2563EB;
+      margin-left: 6px;
+    }
+
+    /* Birthday Select Row */
+    .bday-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .bday-select {
+      flex: 1;
+      background: #F8FAFC;
+      border: 1.5px solid #CBD5E1;
+      border-radius: 12px;
+      padding: 9px 10px;
+      font-size: 13px;
+      font-weight: 700;
+      color: #0F172A;
+      outline: none;
+    }
+
+    .bday-save-btn {
+      background: #2563EB;
+      color: #FFFFFF;
+      border: none;
+      border-radius: 12px;
+      padding: 10px 14px;
+      font-size: 13px;
+      font-weight: 800;
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
@@ -1111,6 +1199,12 @@
           📍 <span id="shopMapText">View on Google Maps</span> ↗
         </a>
       </div>
+    </div>
+
+    <!-- Live Flash Offer / Promo Banner -->
+    <div id="flashPromoBanner" class="flash-promo-banner">
+      <span>📢</span>
+      <span id="flashPromoText">Special Offer Active Today!</span>
     </div>
 
     <!-- Error Alert Box -->
@@ -1328,6 +1422,46 @@
           <div class="tier-bar-bg">
             <div class="tier-bar-fill" id="tierBarFill" style="width: 15%;"></div>
           </div>
+        </div>
+      </div>
+
+      <!-- Digital Menu / Featured Items Showcase Card -->
+      <div class="dash-card" id="featuredMenuCard">
+        <div class="dash-card-header">
+          <span class="dash-card-title">🍽️ Featured Menu</span>
+          <span class="dash-badge">Popular</span>
+        </div>
+        <div class="menu-grid" id="featuredMenuGrid"></div>
+      </div>
+
+      <!-- Birthday Freebie & Special Occasion Perks Card -->
+      <div class="dash-card" id="birthdayPerkCard">
+        <div class="dash-card-header">
+          <span class="dash-card-title">🎂 Birthday Bonus Perk</span>
+          <span class="dash-badge" id="bdaySavedBadge" style="background: #FDF2F8; color: #DB2777; border-color: #FBCFE8;">Free Treat</span>
+        </div>
+        <div id="bdayPickerRow" class="bday-row">
+          <select id="bdayMonthSelect" class="bday-select" aria-label="Birthday Month">
+            <option value="">Month</option>
+            <option value="01">Jan</option><option value="02">Feb</option><option value="03">Mar</option>
+            <option value="04">Apr</option><option value="05">May</option><option value="06">Jun</option>
+            <option value="07">Jul</option><option value="08">Aug</option><option value="09">Sep</option>
+            <option value="10">Oct</option><option value="11">Nov</option><option value="12">Dec</option>
+          </select>
+          <select id="bdayDaySelect" class="bday-select" aria-label="Birthday Day">
+            <option value="">Day</option>
+            <option value="01">1</option><option value="02">2</option><option value="03">3</option><option value="04">4</option><option value="05">5</option>
+            <option value="06">6</option><option value="07">7</option><option value="08">8</option><option value="09">9</option><option value="10">10</option>
+            <option value="11">11</option><option value="12">12</option><option value="13">13</option><option value="14">14</option><option value="15">15</option>
+            <option value="16">16</option><option value="17">17</option><option value="18">18</option><option value="19">19</option><option value="20">20</option>
+            <option value="21">21</option><option value="22">22</option><option value="23">23</option><option value="24">24</option><option value="25">25</option>
+            <option value="26">26</option><option value="27">27</option><option value="28">28</option><option value="29">29</option><option value="30">30</option><option value="31">31</option>
+          </select>
+          <button type="button" class="bday-save-btn" id="bdaySaveBtn" onclick="saveCustomerBirthday()">Save</button>
+        </div>
+        <div id="bdayDisplayRow" style="display: none; font-size: 13px; font-weight: 700; color: #0F172A; align-items: center; justify-content: space-between;">
+          <span id="bdayDisplayText">🎂 Birthday Registered</span>
+          <button type="button" onclick="document.getElementById('bdayPickerRow').style.display='flex'; document.getElementById('bdayDisplayRow').style.display='none';" style="background:none;border:none;color:#2563EB;font-weight:700;font-size:12px;cursor:pointer;">Edit</button>
         </div>
       </div>
 
@@ -2129,6 +2263,71 @@
       }
     }
 
+    async function saveCustomerBirthday() {
+      const mEl = document.getElementById('bdayMonthSelect');
+      const dEl = document.getElementById('bdayDaySelect');
+      const m = mEl ? mEl.value : '';
+      const d = dEl ? dEl.value : '';
+      if (!m || !d) return;
+      const bday = `${m}-${d}`;
+      const fullPhone = getFullPhone();
+      const btn = document.getElementById('bdaySaveBtn');
+      if (btn) btn.textContent = '...';
+      try {
+        localStorage.setItem('stampup_bday_' + fullPhone, bday);
+        const config = window.STAMPUP_CONFIG || {};
+        if (config.supabaseUrl && config.supabaseAnonKey) {
+          await fetch(`${config.supabaseUrl.replace(/\/+$/, '')}/rest/v1/rpc/save_customer_birthday`, {
+            method: 'POST',
+            headers: {
+              'apikey': config.supabaseAnonKey,
+              'Authorization': `Bearer ${config.supabaseAnonKey}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              p_shop_slug: currentSlug,
+              p_phone: fullPhone,
+              p_birthday: bday
+            })
+          });
+        }
+      } catch (e) {}
+      if (btn) btn.textContent = 'Save';
+      renderBirthdayState(bday);
+    }
+
+    function renderBirthdayState(bdayStr) {
+      const pickerRow = document.getElementById('bdayPickerRow');
+      const dispRow = document.getElementById('bdayDisplayRow');
+      const dispText = document.getElementById('bdayDisplayText');
+      const badge = document.getElementById('bdaySavedBadge');
+      if (!bdayStr) {
+        if (pickerRow) pickerRow.style.display = 'flex';
+        if (dispRow) dispRow.style.display = 'none';
+        return;
+      }
+      const parts = bdayStr.split('-');
+      const mEl = document.getElementById('bdayMonthSelect');
+      const dEl = document.getElementById('bdayDaySelect');
+      if (mEl && parts[0]) mEl.value = parts[0];
+      if (dEl && parts[1]) dEl.value = parts[1];
+
+      const now = new Date();
+      const todayMmDd = `${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+      const isBdayToday = bdayStr === todayMmDd;
+
+      if (pickerRow) pickerRow.style.display = 'none';
+      if (dispRow) dispRow.style.display = 'flex';
+      if (dispText) {
+        dispText.textContent = isBdayToday
+          ? '🎉 Happy Birthday! Show this for your Birthday Bonus!'
+          : `🎂 Birthday Saved (${bdayStr}) • Bonus Unlocked on Your Day!`;
+      }
+      if (badge) {
+        badge.textContent = isBdayToday ? '🎉 TODAY!' : '✓ Active';
+      }
+    }
+
     // Render Circles & Stamps
     function displayResult(data, isLiveApproval) {
       activeCardData = data;
@@ -2140,6 +2339,44 @@
       const totalEarned = data.total_stamps_earned || ((rewardsGiven * total) + cur);
       const fullPhone = getFullPhone();
       const stampIcon = getStampIcon(data);
+
+      // Flash Offer / Promo Banner
+      const promoBannerEl = document.getElementById('flashPromoBanner');
+      const promoTextEl = document.getElementById('flashPromoText');
+      if (promoBannerEl && promoTextEl) {
+        if (data.promo_banner && data.promo_banner.trim()) {
+          promoTextEl.textContent = data.promo_banner.trim();
+          promoBannerEl.style.display = 'flex';
+        } else {
+          promoBannerEl.style.display = 'none';
+        }
+      }
+
+      // Featured Menu Showcase
+      const menuGridEl = document.getElementById('featuredMenuGrid');
+      if (menuGridEl) {
+        let items = Array.isArray(data.featured_items) && data.featured_items.length > 0
+          ? data.featured_items
+          : [
+              { icon: '☕', name: 'Signature Coffee', price: '15' },
+              { icon: '🫖', name: 'Special Karak', price: '10' },
+              { icon: '🥐', name: 'Butter Croissant', price: '14' },
+              { icon: '🍰', name: 'House Dessert', price: '18' }
+            ];
+        menuGridEl.innerHTML = items.slice(0, 6).map(it => `
+          <div class="menu-item-box">
+            <div class="menu-item-left">
+              <span>${it.icon || stampIcon}</span>
+              <span class="menu-item-name">${it.name || 'Item'}</span>
+            </div>
+            <span class="menu-item-price">${it.price || ''}</span>
+          </div>
+        `).join('');
+      }
+
+      // Birthday Perk State
+      const savedBday = data.customer_birthday || localStorage.getItem('stampup_bday_' + fullPhone) || '';
+      renderBirthdayState(savedBday);
 
       try {
         const cleanPhone = phoneInput.value.trim();

@@ -32,6 +32,8 @@ import {
   saveCustomerNote,
   cleanPhoneKey,
 } from '../utils/customerNotes';
+import { sendViaWhatsAppBridge } from '../utils/whatsappBridge';
+import { playNotificationFeedback } from '../utils/feedback';
 import type { Shop, Customer } from '../types';
 
 interface CustomersScreenProps {
@@ -73,12 +75,8 @@ const customerWebBase =
   process.env.EXPO_PUBLIC_CUSTOMER_WEB_URL || 'https://stampup-cards.vercel.app';
 
 const sendWhatsApp = (phone: string, text: string) => {
-  const cleanDigits = phone.replace(/[^0-9]/g, '');
-  const encoded = encodeURIComponent(text);
-  const url = `https://wa.me/${cleanDigits}?text=${encoded}`;
-  Linking.openURL(url).catch(() => {
-    Alert.alert('WhatsApp Error', 'Could not open WhatsApp on this device.');
-  });
+  sendViaWhatsAppBridge(phone, text);
+  playNotificationFeedback();
 };
 
 export const CustomersScreen: React.FC<CustomersScreenProps> = ({ shop }) => {
@@ -86,7 +84,13 @@ export const CustomersScreen: React.FC<CustomersScreenProps> = ({ shop }) => {
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [filterStatus, setFilterStatus] = useState<'all' | 'ready'>('all');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'ready' | 'inactive'>('all');
+
+  // Revenue & Automated WhatsApp Analytics State
+  const [totalBillRevenue, setTotalBillRevenue] = useState<number>(0);
+  const [paidBillsCount, setPaidBillsCount] = useState<number>(0);
+  const [whatsAppSentCount, setWhatsAppSentCount] = useState<number>(0);
+  const [winBackSentToast, setWinBackSentToast] = useState<string | null>(null);
 
   // Selected customer for detail / deletion modal
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
@@ -207,21 +211,49 @@ export const CustomersScreen: React.FC<CustomersScreenProps> = ({ shop }) => {
     };
   }, [selectedCustomer, shop.id]);
 
-  // Load customer list from Supabase
+  // Load customer list & revenue/WhatsApp analytics from Supabase
   const fetchCustomers = useCallback(async () => {
     try {
-      const { data, error } = await supabase
-        .from('customers')
-        .select('*')
-        .eq('shop_id', shop.id)
-        .order('last_stamp_at', { ascending: false, nullsFirst: false });
+      const [custRes, stampsRes, waRes] = await Promise.all([
+        supabase
+          .from('customers')
+          .select('*')
+          .eq('shop_id', shop.id)
+          .order('last_stamp_at', { ascending: false, nullsFirst: false }),
+        supabase
+          .from('stamps')
+          .select('amount')
+          .eq('shop_id', shop.id),
+        supabase
+          .from('whatsapp_outbox')
+          .select('id', { count: 'exact', head: true })
+          .eq('shop_id', shop.id),
+      ]);
 
-      if (error) {
-        console.error('Error fetching customers:', error);
-        setErrorMessage(error.message);
+      if (custRes.error) {
+        console.error('Error fetching customers:', custRes.error);
+        setErrorMessage(custRes.error.message);
       } else {
-        setCustomers((data as Customer[]) || []);
+        setCustomers((custRes.data as Customer[]) || []);
         setErrorMessage(null);
+      }
+
+      if (stampsRes.data && Array.isArray(stampsRes.data)) {
+        let rev = 0;
+        let bills = 0;
+        stampsRes.data.forEach((s: any) => {
+          const amt = Number(s.amount) || 0;
+          if (amt > 0) {
+            rev += amt;
+            bills += 1;
+          }
+        });
+        setTotalBillRevenue(rev);
+        setPaidBillsCount(bills);
+      }
+
+      if (typeof waRes.count === 'number') {
+        setWhatsAppSentCount(waRes.count);
       }
     } catch (err: any) {
       console.error('Fetch customers exception:', err);
@@ -320,9 +352,14 @@ export const CustomersScreen: React.FC<CustomersScreenProps> = ({ shop }) => {
 
   // Filter customers by search query and filter status
   const filteredCustomers = useMemo(() => {
+    const fourteenDaysAgo = Date.now() - 14 * 24 * 60 * 60 * 1000;
     return customers.filter((c) => {
       if (filterStatus === 'ready' && (c.current_stamps || 0) < shop.stamps_required) {
         return false;
+      }
+      if (filterStatus === 'inactive') {
+        const isInactive = !c.last_stamp_at || new Date(c.last_stamp_at).getTime() < fourteenDaysAgo;
+        if (!isInactive) return false;
       }
       if (!searchQuery.trim()) return true;
       const cleanSearch = searchQuery.replace(/[^0-9]/g, '');
@@ -333,6 +370,19 @@ export const CustomersScreen: React.FC<CustomersScreenProps> = ({ shop }) => {
       return matchPhoneDigits || matchRawPhone || matchName;
     });
   }, [customers, filterStatus, searchQuery, shop.stamps_required]);
+
+  // 1-Tap Automated Win-Back Campaign for Inactive Customers
+  const handleWinBackAllInactive = () => {
+    const targets = filteredCustomers.slice(0, 25);
+    if (targets.length === 0) return;
+    targets.forEach((cust) => {
+      const msg = getCampaignMessage('we_miss_you', cust);
+      sendViaWhatsAppBridge(cust.phone, msg);
+    });
+    playNotificationFeedback();
+    setWinBackSentToast(`✅ Queued ${targets.length} Win-Back WhatsApp message${targets.length > 1 ? 's' : ''}!`);
+    setTimeout(() => setWinBackSentToast(null), 4000);
+  };
 
   // Fetch date-wise customer activity across last 90 days (3 months)
   const fetchDateActivity = useCallback(async () => {
@@ -494,6 +544,11 @@ export const CustomersScreen: React.FC<CustomersScreenProps> = ({ shop }) => {
                   <Text style={styles.vipBadgePillText}>⭐ VIP</Text>
                 </View>
               )}
+              {item.birthday ? (
+                <View style={[styles.vipBadgePill, { backgroundColor: '#FCE7F3', borderColor: '#FBCFE8' }]}>
+                  <Text style={[styles.vipBadgePillText, { color: '#BE185D' }]}>🎂 {item.birthday}</Text>
+                </View>
+              ) : null}
             </View>
             <Text style={styles.phoneText}>{formatPhoneDisplay(item.phone)}</Text>
             {notesMap[cleanPhoneKey(item.phone)] ? (
@@ -722,6 +777,59 @@ export const CustomersScreen: React.FC<CustomersScreenProps> = ({ shop }) => {
         </View>
       </View>
 
+      {/* Live POS Revenue & Automated WhatsApp Analytics Bar */}
+      <View
+        style={{
+          flexDirection: 'row',
+          marginHorizontal: 16,
+          marginBottom: 10,
+          backgroundColor: '#FFFFFF',
+          borderRadius: 12,
+          borderWidth: 1,
+          borderColor: '#E2E8F0',
+          paddingVertical: 8,
+          paddingHorizontal: 12,
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}
+      >
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <Text style={{ fontSize: 13 }}>💰</Text>
+          <View>
+            <Text style={{ fontSize: 10, fontWeight: '700', color: '#64748B', textTransform: 'uppercase' }}>
+              POS Bill Revenue
+            </Text>
+            <Text style={{ fontSize: 13, fontWeight: '800', color: '#0F172A' }}>
+              {totalBillRevenue.toFixed(2)} ({paidBillsCount} bills)
+            </Text>
+          </View>
+        </View>
+        <View style={{ width: 1, height: 24, backgroundColor: '#E2E8F0' }} />
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <Text style={{ fontSize: 13 }}>📊</Text>
+          <View>
+            <Text style={{ fontSize: 10, fontWeight: '700', color: '#64748B', textTransform: 'uppercase' }}>
+              Avg Bill
+            </Text>
+            <Text style={{ fontSize: 13, fontWeight: '800', color: '#0F172A' }}>
+              {paidBillsCount > 0 ? (totalBillRevenue / paidBillsCount).toFixed(2) : '0.00'}
+            </Text>
+          </View>
+        </View>
+        <View style={{ width: 1, height: 24, backgroundColor: '#E2E8F0' }} />
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <Text style={{ fontSize: 13 }}>💬</Text>
+          <View>
+            <Text style={{ fontSize: 10, fontWeight: '700', color: '#64748B', textTransform: 'uppercase' }}>
+              Auto WhatsApp
+            </Text>
+            <Text style={{ fontSize: 13, fontWeight: '800', color: '#16A34A' }}>
+              {whatsAppSentCount} sent
+            </Text>
+          </View>
+        </View>
+      </View>
+
       {/* Search Input Bar */}
       <View style={styles.searchContainer}>
         <Text style={styles.searchIcon}>🔍</Text>
@@ -776,16 +884,63 @@ export const CustomersScreen: React.FC<CustomersScreenProps> = ({ shop }) => {
               🎉 Ready ({readyCount})
             </Text>
           </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.filterPill,
+              filterStatus === 'inactive' && styles.filterPillActive,
+            ]}
+            onPress={() => setFilterStatus('inactive')}
+            activeOpacity={0.7}
+          >
+            <Text
+              style={[
+                styles.filterPillText,
+                filterStatus === 'inactive' && styles.filterPillTextActive,
+              ]}
+            >
+              💤 Inactive ({missYouCount})
+            </Text>
+          </TouchableOpacity>
         </View>
 
-        <TouchableOpacity
-          style={styles.dateActivityBtn}
-          onPress={() => setDateModalVisible(true)}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.dateActivityBtnText}>📅 90-Day Log</Text>
-        </TouchableOpacity>
+        {filterStatus === 'inactive' && filteredCustomers.length > 0 ? (
+          <TouchableOpacity
+            style={[styles.dateActivityBtn, { backgroundColor: '#16A34A', borderColor: '#15803D' }]}
+            onPress={handleWinBackAllInactive}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.dateActivityBtnText, { color: '#FFFFFF' }]}>💬 Win-Back All</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={styles.dateActivityBtn}
+            onPress={() => setDateModalVisible(true)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.dateActivityBtnText}>📅 90-Day Log</Text>
+          </TouchableOpacity>
+        )}
       </View>
+
+      {winBackSentToast ? (
+        <View
+          style={{
+            marginHorizontal: 16,
+            marginBottom: 8,
+            backgroundColor: '#DCFCE7',
+            borderColor: '#86EFAC',
+            borderWidth: 1,
+            borderRadius: 10,
+            paddingVertical: 8,
+            paddingHorizontal: 12,
+          }}
+        >
+          <Text style={{ fontSize: 12, fontWeight: '700', color: '#166534' }}>
+            {winBackSentToast}
+          </Text>
+        </View>
+      ) : null}
 
       {/* Customer List or Empty/Loading State */}
       {loading ? (
@@ -801,6 +956,8 @@ export const CustomersScreen: React.FC<CustomersScreenProps> = ({ shop }) => {
           <Text style={styles.emptyTitle}>
             {filterStatus === 'ready'
               ? 'No full cards yet'
+              : filterStatus === 'inactive'
+              ? 'No inactive members (14d+)'
               : searchQuery
               ? 'No matching members found'
               : 'No loyalty members yet'}
@@ -808,6 +965,8 @@ export const CustomersScreen: React.FC<CustomersScreenProps> = ({ shop }) => {
           <Text style={styles.emptySubtitle}>
             {filterStatus === 'ready'
               ? `Customers who reach ${shop.stamps_required} stamps will appear here ready to claim rewards!`
+              : filterStatus === 'inactive'
+              ? 'All your members have visited within the last 14 days!'
               : searchQuery
               ? 'Try searching with different phone digits or customer name.'
               : 'Add your first stamp from the "Add Stamp" tab to start growing your loyalty list!'}
@@ -1469,10 +1628,42 @@ export const CustomersScreen: React.FC<CustomersScreenProps> = ({ shop }) => {
             </View>
 
             {/* Target Audience List */}
-            <View style={styles.campaignAudienceHeaderRow}>
+            <View
+              style={[
+                styles.campaignAudienceHeaderRow,
+                { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+              ]}
+            >
               <Text style={styles.campaignAudienceTitle}>
                 Targeted Customers ({campaignMatchingCustomers.length})
               </Text>
+              {campaignMatchingCustomers.length > 0 && (
+                <TouchableOpacity
+                  style={{
+                    backgroundColor: '#16A34A',
+                    paddingHorizontal: 10,
+                    paddingVertical: 5,
+                    borderRadius: 8,
+                  }}
+                  onPress={() => {
+                    const targets = campaignMatchingCustomers.slice(0, 25);
+                    targets.forEach((cust) => {
+                      const msg = getCampaignMessage(selectedCampaignType, cust);
+                      sendViaWhatsAppBridge(cust.phone, msg);
+                    });
+                    playNotificationFeedback();
+                    Alert.alert(
+                      'WhatsApp Queued',
+                      `Queued ${targets.length} automated WhatsApp message${targets.length > 1 ? 's' : ''}!`
+                    );
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: '800' }}>
+                    💬 Auto-Send All
+                  </Text>
+                </TouchableOpacity>
+              )}
             </View>
 
             {campaignMatchingCustomers.length === 0 ? (

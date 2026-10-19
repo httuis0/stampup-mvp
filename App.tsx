@@ -15,7 +15,10 @@ import {
   Modal,
   Alert,
   BackHandler,
+  AppState,
+  Platform,
 } from 'react-native';
+import * as Updates from 'expo-updates';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -44,6 +47,33 @@ export default function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [shopLoading, setShopLoading] = useState<boolean>(false);
+
+  // Automatic OTA Update Checker (Checks on launch & every foreground resume)
+  useEffect(() => {
+    if (Platform.OS === 'web' || __DEV__) return;
+
+    const checkAndApplyOtaUpdate = async () => {
+      try {
+        const update = await Updates.checkForUpdateAsync();
+        if (update.isAvailable) {
+          await Updates.fetchUpdateAsync();
+          await Updates.reloadAsync();
+        }
+      } catch (e) {
+        // Ignore in dev or offline
+      }
+    };
+
+    checkAndApplyOtaUpdate();
+
+    const sub = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') {
+        checkAndApplyOtaUpdate();
+      }
+    });
+
+    return () => sub.remove();
+  }, []);
 
   // Multi-shop support
   const [shops, setShops] = useState<Shop[]>([]);
