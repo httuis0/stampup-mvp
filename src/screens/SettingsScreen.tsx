@@ -62,7 +62,15 @@ import {
 } from '../utils/whatsappBridge';
 import type { Shop, FeaturedMenuItem } from '../types';
 
-type SettingsTab = 'shop' | 'region' | 'security' | 'pos' | 'qr' | 'account';
+type SettingsTab =
+  | 'shop'
+  | 'offers'
+  | 'whatsapp'
+  | 'pos'
+  | 'region'
+  | 'security'
+  | 'qr'
+  | 'account';
 
 interface SettingsScreenProps {
   shop: Shop;
@@ -100,6 +108,16 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 }) => {
   // Active Section in Pipeline
   const [activeTab, setActiveTab] = useState<SettingsTab>('shop');
+
+  // Section Collapsed / Expanded Toggles ("do not keep them open")
+  const [isEditingPromoBanner, setIsEditingPromoBanner] = useState<boolean>(false);
+  const [isAddingMenuItem, setIsAddingMenuItem] = useState<boolean>(false);
+  const [isConfiguringWhatsApp, setIsConfiguringWhatsApp] = useState<boolean>(false);
+  const [isConfiguringPosRules, setIsConfiguringPosRules] = useState<boolean>(false);
+  const [isSimulatingPos, setIsSimulatingPos] = useState<boolean>(false);
+  const [outboxItems, setOutboxItems] = useState<any[]>([]);
+  const [loadingOutbox, setLoadingOutbox] = useState<boolean>(false);
+  const [processingOutbox, setProcessingOutbox] = useState<boolean>(false);
 
   // Shop Details State
   const [shopName, setShopName] = useState<string>(shop.name);
@@ -459,11 +477,76 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     }
   };
 
+  // Load outbox queue messages for live status
+  const fetchOutboxMessages = async () => {
+    setLoadingOutbox(true);
+    try {
+      const { data } = await supabase
+        .from('whatsapp_outbox')
+        .select('*')
+        .eq('shop_id', shop.id)
+        .order('created_at', { ascending: false })
+        .limit(10);
+      setOutboxItems(data || []);
+    } catch (e) {
+      console.warn('Failed to load outbox:', e);
+    } finally {
+      setLoadingOutbox(false);
+    }
+  };
+
   useEffect(() => {
-    if (activeTab === 'pos') {
+    if (activeTab === 'pos' || activeTab === 'whatsapp') {
       loadPosDetails();
+      fetchOutboxMessages();
     }
   }, [activeTab, shop.id]);
+
+  // Dispatch all queued outbox messages
+  const handleSendAllQueuedOutbox = async () => {
+    const queued = outboxItems.filter((m) => m.status === 'queued');
+    if (queued.length === 0) {
+      Alert.alert('Outbox Clean', 'No pending messages waiting to send.');
+      return;
+    }
+    const finalGatewayUrl = buildNormalizedGatewayUrl(whatsappWebhookUrl, whatsappApiToken);
+    if (!finalGatewayUrl) {
+      Alert.alert(
+        'Gateway Required',
+        'Enter your WhatsApp Instance ID or Gateway URL below to send messages automatically in the background.'
+      );
+      setIsConfiguringWhatsApp(true);
+      return;
+    }
+
+    setProcessingOutbox(true);
+    let sentCount = 0;
+    try {
+      for (const msg of queued) {
+        const res = await relayWhatsAppOutboxMessage(
+          finalGatewayUrl,
+          whatsappApiToken,
+          msg.recipient_phone,
+          msg.message_text,
+          msg.id
+        );
+        if (res.ok) {
+          sentCount++;
+          await supabase
+            .from('whatsapp_outbox')
+            .update({ status: 'sent', sent_at: new Date().toISOString() })
+            .eq('id', msg.id);
+        }
+      }
+      playNotificationFeedback();
+      setSuccessMessage(`Dispatched ${sentCount} queued WhatsApp message${sentCount > 1 ? 's' : ''}!`);
+      await fetchOutboxMessages();
+    } catch (e: any) {
+      setErrorMessage(e?.message || 'Failed to dispatch queued messages.');
+    } finally {
+      setProcessingOutbox(false);
+    }
+  };
 
   const handleSavePosRules = async () => {
     setErrorMessage(null);
@@ -884,7 +967,37 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             activeOpacity={0.7}
           >
             <Text style={[styles.pipelineTabText, activeTab === 'shop' && styles.pipelineTabTextActive]}>
-              🏬 Shop & Branches
+              🏬 Shop
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.pipelineTab, activeTab === 'offers' && styles.pipelineTabActive]}
+            onPress={() => setActiveTab('offers')}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.pipelineTabText, activeTab === 'offers' && styles.pipelineTabTextActive]}>
+              📢 Offers & Menu
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.pipelineTab, activeTab === 'whatsapp' && styles.pipelineTabActive]}
+            onPress={() => setActiveTab('whatsapp')}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.pipelineTabText, activeTab === 'whatsapp' && styles.pipelineTabTextActive]}>
+              💬 WhatsApp
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.pipelineTab, activeTab === 'pos' && styles.pipelineTabActive]}
+            onPress={() => setActiveTab('pos')}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.pipelineTabText, activeTab === 'pos' && styles.pipelineTabTextActive]}>
+              🔌 POS & API
             </Text>
           </TouchableOpacity>
 
@@ -909,16 +1022,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.pipelineTab, activeTab === 'pos' && styles.pipelineTabActive]}
-            onPress={() => setActiveTab('pos')}
-            activeOpacity={0.7}
-          >
-            <Text style={[styles.pipelineTabText, activeTab === 'pos' && styles.pipelineTabTextActive]}>
-              🔌 POS & API
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
             style={[styles.pipelineTab, activeTab === 'qr' && styles.pipelineTabActive]}
             onPress={() => setActiveTab('qr')}
             activeOpacity={0.7}
@@ -934,7 +1037,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             activeOpacity={0.7}
           >
             <Text style={[styles.pipelineTabText, activeTab === 'account' && styles.pipelineTabTextActive]}>
-              ⚖️ Legal & Account
+              ⚖️ Account
             </Text>
           </TouchableOpacity>
         </ScrollView>
@@ -1210,116 +1313,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               </View>
             </View>
 
-            {/* Customer Card Promo Banner & Featured Menu Card */}
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>📢 Promo Banner & Featured Menu</Text>
-
-              <Text style={[styles.inputLabel, { marginTop: 10 }]}>🔥 Flash Offer / Promo Banner:</Text>
-              <TextInput
-                style={styles.input}
-                value={promoBanner}
-                onChangeText={setPromoBanner}
-                placeholder="e.g. Happy Hour 3-6PM: Double Stamps on all Karak!"
-                placeholderTextColor="#94A3B8"
-              />
-
-              <Text style={[styles.inputLabel, { marginTop: 12 }]}>🍽️ Featured Menu Items:</Text>
-
-              {featuredItems.length > 0 && (
-                <View style={{ gap: 6, marginBottom: 10 }}>
-                  {featuredItems.map((it, idx) => (
-                    <View
-                      key={idx}
-                      style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        backgroundColor: '#F8FAFC',
-                        borderWidth: 1,
-                        borderColor: '#E2E8F0',
-                        borderRadius: 10,
-                        paddingHorizontal: 10,
-                        paddingVertical: 8,
-                      }}
-                    >
-                      <Text style={{ fontSize: 13, fontWeight: '700', color: '#0F172A' }}>
-                        {it.icon || '🍽️'} {it.name} — <Text style={{ color: '#2563EB' }}>{it.price}</Text>
-                      </Text>
-                      <TouchableOpacity
-                        onPress={() => {
-                          const next = featuredItems.filter((_, i) => i !== idx);
-                          setFeaturedItems(next);
-                        }}
-                      >
-                        <Text style={{ fontSize: 13, fontWeight: '800', color: '#DC2626' }}>✕</Text>
-                      </TouchableOpacity>
-                    </View>
-                  ))}
-                </View>
-              )}
-
-              <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center', marginBottom: 10 }}>
-                <TextInput
-                  style={[styles.input, { width: 46, textAlign: 'center', marginBottom: 0, paddingHorizontal: 4 }]}
-                  value={newItemEmoji}
-                  onChangeText={setNewItemEmoji}
-                  placeholder="☕"
-                />
-                <TextInput
-                  style={[styles.input, { flex: 1.4, marginBottom: 0 }]}
-                  value={newItemName}
-                  onChangeText={setNewItemName}
-                  placeholder="Item name"
-                  placeholderTextColor="#94A3B8"
-                />
-                <TextInput
-                  style={[styles.input, { flex: 0.9, marginBottom: 0 }]}
-                  value={newItemPrice}
-                  onChangeText={setNewItemPrice}
-                  placeholder="AED 12"
-                  placeholderTextColor="#94A3B8"
-                />
-                <TouchableOpacity
-                  style={{
-                    backgroundColor: '#0F172A',
-                    paddingHorizontal: 12,
-                    paddingVertical: 11,
-                    borderRadius: 10,
-                  }}
-                  onPress={() => {
-                    if (!newItemName.trim()) return;
-                    const next: FeaturedMenuItem[] = [
-                      ...featuredItems,
-                      {
-                        name: newItemName.trim(),
-                        price: newItemPrice.trim() || '',
-                        icon: newItemEmoji.trim() || '☕',
-                      },
-                    ];
-                    setFeaturedItems(next);
-                    setNewItemName('');
-                    setNewItemPrice('');
-                  }}
-                  activeOpacity={0.8}
-                >
-                  <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: '800' }}>+ Add</Text>
-                </TouchableOpacity>
-              </View>
-
-              <TouchableOpacity
-                style={[styles.primaryButton, savingPromoMenu && styles.buttonDisabled]}
-                onPress={() => handleSavePromoAndMenu()}
-                disabled={savingPromoMenu}
-                activeOpacity={0.8}
-              >
-                {savingPromoMenu ? (
-                  <ActivityIndicator color="#FFFFFF" size="small" />
-                ) : (
-                  <Text style={styles.primaryButtonText}>Save Promo & Menu</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-
             {/* My Branches Section */}
             <View style={styles.card}>
               <View style={styles.cardHeaderRow}>
@@ -1368,6 +1361,585 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   </TouchableOpacity>
                 );
               })}
+            </View>
+          </View>
+        )}
+
+        {/* -------------------------------------------------------- */}
+        {/* TAB: OFFERS & FEATURED MENU */}
+        {/* -------------------------------------------------------- */}
+        {activeTab === 'offers' && (
+          <View>
+            {/* Flash Offer / Promo Banner Card */}
+            <View style={styles.card}>
+              <View style={styles.cardHeaderRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.cardTitle}>🔥 Flash Offer Banner</Text>
+                  <Text style={{ fontSize: 12, color: '#64748B', marginTop: 2 }}>
+                    Displayed at the top of customer digital cards
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.smallAddBtn}
+                  onPress={() => setIsEditingPromoBanner(!isEditingPromoBanner)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.smallAddBtnText}>
+                    {isEditingPromoBanner ? '✕ Cancel' : (promoBanner ? '✏️ Edit Banner' : '+ Add Banner')}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {!isEditingPromoBanner ? (
+                <View style={{ marginTop: 10 }}>
+                  {promoBanner ? (
+                    <View
+                      style={{
+                        backgroundColor: '#FEF3C7',
+                        borderColor: '#FDE68A',
+                        borderWidth: 1,
+                        borderRadius: 12,
+                        padding: 12,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 10,
+                      }}
+                    >
+                      <Text style={{ fontSize: 20 }}>📢</Text>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontSize: 11, fontWeight: '700', color: '#92400E', textTransform: 'uppercase' }}>
+                          Active Promo Banner
+                        </Text>
+                        <Text style={{ fontSize: 14, fontWeight: '800', color: '#78350F', marginTop: 2 }}>
+                          {promoBanner}
+                        </Text>
+                      </View>
+                    </View>
+                  ) : (
+                    <Text style={{ fontSize: 13, color: '#64748B', fontStyle: 'italic', paddingVertical: 6 }}>
+                      No active flash offer banner. Tap "+ Add Banner" to display announcements or specials on customer cards.
+                    </Text>
+                  )}
+                </View>
+              ) : (
+                <View style={{ marginTop: 12 }}>
+                  <Text style={styles.inputLabel}>Offer / Announcement Text:</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={promoBanner}
+                    onChangeText={setPromoBanner}
+                    placeholder="e.g. Happy Hour 3-6PM: Double Stamps on all Karak!"
+                    placeholderTextColor="#94A3B8"
+                  />
+                  <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
+                    <TouchableOpacity
+                      style={[styles.primaryButton, { flex: 1, marginTop: 0 }, savingPromoMenu && styles.buttonDisabled]}
+                      onPress={async () => {
+                        await handleSavePromoAndMenu();
+                        setIsEditingPromoBanner(false);
+                      }}
+                      disabled={savingPromoMenu}
+                      activeOpacity={0.8}
+                    >
+                      {savingPromoMenu ? (
+                        <ActivityIndicator color="#FFFFFF" size="small" />
+                      ) : (
+                        <Text style={styles.primaryButtonText}>Save Banner</Text>
+                      )}
+                    </TouchableOpacity>
+
+                    {promoBanner ? (
+                      <TouchableOpacity
+                        style={[styles.outlineButton, { flex: 0.6, marginTop: 0, marginBottom: 0, borderColor: '#FCA5A5' }]}
+                        onPress={async () => {
+                          setPromoBanner('');
+                          await handleSavePromoAndMenu();
+                          setIsEditingPromoBanner(false);
+                        }}
+                        disabled={savingPromoMenu}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={[styles.outlineButtonText, { color: '#DC2626' }]}>Remove</Text>
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
+                </View>
+              )}
+            </View>
+
+            {/* Featured Menu Items Card */}
+            <View style={styles.card}>
+              <View style={styles.cardHeaderRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.cardTitle}>🍽️ Featured Menu Items</Text>
+                  <Text style={{ fontSize: 12, color: '#64748B', marginTop: 2 }}>
+                    {featuredItems.length} item{featuredItems.length === 1 ? '' : 's'} shown on digital cards
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.smallAddBtn}
+                  onPress={() => setIsAddingMenuItem(!isAddingMenuItem)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.smallAddBtnText}>{isAddingMenuItem ? '✕ Close' : '+ Add Item'}</Text>
+                </TouchableOpacity>
+              </View>
+
+              {isAddingMenuItem && (
+                <View
+                  style={{
+                    backgroundColor: '#F8FAFC',
+                    borderColor: '#E2E8F0',
+                    borderWidth: 1,
+                    borderRadius: 14,
+                    padding: 12,
+                    marginTop: 10,
+                    marginBottom: 12,
+                  }}
+                >
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: '#0F172A', marginBottom: 8 }}>
+                    Add New Featured Item:
+                  </Text>
+                  <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center', marginBottom: 10 }}>
+                    <TextInput
+                      style={[styles.input, { width: 48, textAlign: 'center', marginBottom: 0, paddingHorizontal: 4 }]}
+                      value={newItemEmoji}
+                      onChangeText={setNewItemEmoji}
+                      placeholder="☕"
+                    />
+                    <TextInput
+                      style={[styles.input, { flex: 1.4, marginBottom: 0 }]}
+                      value={newItemName}
+                      onChangeText={setNewItemName}
+                      placeholder="Item name"
+                      placeholderTextColor="#94A3B8"
+                    />
+                    <TextInput
+                      style={[styles.input, { flex: 0.9, marginBottom: 0 }]}
+                      value={newItemPrice}
+                      onChangeText={setNewItemPrice}
+                      placeholder="AED 12"
+                      placeholderTextColor="#94A3B8"
+                    />
+                  </View>
+                  <TouchableOpacity
+                    style={[styles.primaryButton, { marginTop: 0 }]}
+                    onPress={async () => {
+                      if (!newItemName.trim()) return;
+                      const next: FeaturedMenuItem[] = [
+                        ...featuredItems,
+                        {
+                          name: newItemName.trim(),
+                          price: newItemPrice.trim() || '',
+                          icon: newItemEmoji.trim() || '☕',
+                        },
+                      ];
+                      setFeaturedItems(next);
+                      setNewItemName('');
+                      setNewItemPrice('');
+                      setIsAddingMenuItem(false);
+                      await handleSavePromoAndMenu(next);
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.primaryButtonText}>+ Add to Menu</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              {featuredItems.length > 0 ? (
+                <View style={{ gap: 8, marginTop: isAddingMenuItem ? 0 : 10 }}>
+                  {featuredItems.map((it, idx) => (
+                    <View
+                      key={idx}
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        backgroundColor: '#F8FAFC',
+                        borderWidth: 1,
+                        borderColor: '#E2E8F0',
+                        borderRadius: 12,
+                        paddingHorizontal: 12,
+                        paddingVertical: 10,
+                      }}
+                    >
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
+                        <Text style={{ fontSize: 18 }}>{it.icon || '🍽️'}</Text>
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ fontSize: 14, fontWeight: '700', color: '#0F172A' }}>{it.name}</Text>
+                          {it.price ? (
+                            <Text style={{ fontSize: 13, fontWeight: '600', color: '#2563EB', marginTop: 2 }}>
+                              {it.price}
+                            </Text>
+                          ) : null}
+                        </View>
+                      </View>
+                      <TouchableOpacity
+                        onPress={async () => {
+                          const next = featuredItems.filter((_, i) => i !== idx);
+                          setFeaturedItems(next);
+                          await handleSavePromoAndMenu(next);
+                        }}
+                        style={{ padding: 6 }}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={{ fontSize: 14, fontWeight: '800', color: '#DC2626' }}>✕</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </View>
+              ) : (
+                !isAddingMenuItem && (
+                  <Text style={{ fontSize: 13, color: '#64748B', fontStyle: 'italic', marginTop: 8 }}>
+                    No featured items yet. Tap "+ Add Item" to showcase bestsellers on customer cards.
+                  </Text>
+                )
+              )}
+            </View>
+          </View>
+        )}
+
+        {/* -------------------------------------------------------- */}
+        {/* TAB: WHATSAPP AUTOMATION PIPELINE */}
+        {/* -------------------------------------------------------- */}
+        {activeTab === 'whatsapp' && (
+          <View>
+            {/* Live Gateway Status Header Banner */}
+            <View
+              style={{
+                backgroundColor: (shop.whatsapp_webhook_url || whatsappWebhookUrl) ? '#F0FDF4' : '#EFF6FF',
+                borderColor: (shop.whatsapp_webhook_url || whatsappWebhookUrl) ? '#BBF7D0' : '#BFDBFE',
+                borderWidth: 1.5,
+                borderRadius: 14,
+                padding: 14,
+                marginBottom: 14,
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 12,
+              }}
+            >
+              <Text style={{ fontSize: 26 }}>{(shop.whatsapp_webhook_url || whatsappWebhookUrl) ? '⚡' : '💬'}</Text>
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={{
+                    fontSize: 14,
+                    fontWeight: '800',
+                    color: (shop.whatsapp_webhook_url || whatsappWebhookUrl) ? '#166534' : '#1E40AF',
+                  }}
+                >
+                  {(shop.whatsapp_webhook_url || whatsappWebhookUrl)
+                    ? 'Automated WhatsApp Gateway Connected'
+                    : 'WhatsApp Ready (Device App & Web Fallback)'}
+                </Text>
+                <Text
+                  style={{
+                    fontSize: 12,
+                    color: (shop.whatsapp_webhook_url || whatsappWebhookUrl) ? '#15803D' : '#3B82F6',
+                    marginTop: 2,
+                    lineHeight: 16,
+                  }}
+                >
+                  {(shop.whatsapp_webhook_url || whatsappWebhookUrl)
+                    ? 'Silent background automation is active. Customer stamp receipts & win-back campaigns dispatch automatically.'
+                    : 'Configure your WhatsApp Instance ID below for 100% background dispatch, or use 1-tap WhatsApp Web.'}
+                </Text>
+              </View>
+            </View>
+
+            {/* Section 1: WhatsApp Gateway Credentials (COLLAPSIBLE) */}
+            <View style={styles.card}>
+              <View style={styles.cardHeaderRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.cardTitle}>⚙️ Gateway Configuration</Text>
+                  <Text style={{ fontSize: 12, color: '#64748B', marginTop: 2 }}>
+                    {(shop.whatsapp_webhook_url || whatsappWebhookUrl)
+                      ? 'External gateway linked'
+                      : 'Not configured'}
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.smallAddBtn}
+                  onPress={() => setIsConfiguringWhatsApp(!isConfiguringWhatsApp)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.smallAddBtnText}>
+                    {isConfiguringWhatsApp
+                      ? '✕ Close'
+                      : ((shop.whatsapp_webhook_url || whatsappWebhookUrl) ? '✏️ Configure' : '+ Setup')}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {!isConfiguringWhatsApp ? (
+                <View style={{ marginTop: 10 }}>
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      justifyContent: 'space-between',
+                      paddingVertical: 8,
+                      borderBottomWidth: 1,
+                      borderBottomColor: '#F1F5F9',
+                    }}
+                  >
+                    <Text style={{ fontSize: 13, fontWeight: '600', color: '#64748B' }}>Instance / Endpoint:</Text>
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: '#0F172A', maxWidth: 200 }} numberOfLines={1}>
+                      {whatsappWebhookUrl || 'Not configured'}
+                    </Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8 }}>
+                    <Text style={{ fontSize: 13, fontWeight: '600', color: '#64748B' }}>API Token:</Text>
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: '#0F172A' }}>
+                      {whatsappApiToken ? '••••••••' : 'None'}
+                    </Text>
+                  </View>
+                </View>
+              ) : (
+                <View style={{ marginTop: 12 }}>
+                  <Text style={{ fontSize: 12, color: '#475569', marginBottom: 10, lineHeight: 18 }}>
+                    Supports <Text style={{ fontWeight: '700' }}>Green-API</Text> (Instance ID & Token),{' '}
+                    <Text style={{ fontWeight: '700' }}>UltraMsg</Text>,{' '}
+                    <Text style={{ fontWeight: '700' }}>CallMeBot</Text>,{' '}
+                    <Text style={{ fontWeight: '700' }}>Meta Cloud API</Text>, or custom webhook endpoints.
+                  </Text>
+
+                  <Text style={styles.inputLabel}>Instance ID or Full Webhook URL:</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={whatsappWebhookUrl}
+                    onChangeText={setWhatsappWebhookUrl}
+                    placeholder="e.g. 7103948123 or https://api.green-api.com/..."
+                    placeholderTextColor="#94A3B8"
+                    autoCapitalize="none"
+                  />
+
+                  <Text style={styles.inputLabel}>API Token / Key:</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={whatsappApiToken}
+                    onChangeText={setWhatsappApiToken}
+                    placeholder="e.g. API Token"
+                    placeholderTextColor="#94A3B8"
+                    secureTextEntry
+                    autoCapitalize="none"
+                  />
+
+                  <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
+                    <TouchableOpacity
+                      style={[styles.primaryButton, { flex: 1, marginTop: 0 }, savingPosRules && styles.buttonDisabled]}
+                      onPress={async () => {
+                        await handleSavePosRules();
+                        setIsConfiguringWhatsApp(false);
+                      }}
+                      disabled={savingPosRules}
+                      activeOpacity={0.8}
+                    >
+                      {savingPosRules ? (
+                        <ActivityIndicator color="#FFFFFF" size="small" />
+                      ) : (
+                        <Text style={styles.primaryButtonText}>💾 Save Gateway</Text>
+                      )}
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[styles.outlineButton, { flex: 0.6, marginTop: 0, marginBottom: 0 }]}
+                      onPress={() => setIsConfiguringWhatsApp(false)}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.outlineButtonText}>Cancel</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+            </View>
+
+            {/* Section 2: Outbox Queue & Real Delivery Engine */}
+            <View style={styles.card}>
+              <View style={styles.cardHeaderRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.cardTitle}>📬 Live WhatsApp Outbox</Text>
+                  <Text style={{ fontSize: 12, color: '#64748B', marginTop: 2 }}>
+                    {outboxItems.filter((m) => m.status === 'queued').length} message(s) waiting in queue
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  style={[styles.smallAddBtn, { backgroundColor: '#F1F5F9' }]}
+                  onPress={fetchOutboxMessages}
+                  disabled={loadingOutbox}
+                  activeOpacity={0.7}
+                >
+                  {loadingOutbox ? (
+                    <ActivityIndicator size="small" color="#475569" />
+                  ) : (
+                    <Text style={[styles.smallAddBtnText, { color: '#475569' }]}>🔄 Refresh</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+
+              {/* Action to dispatch all queued messages */}
+              {outboxItems.filter((m) => m.status === 'queued').length > 0 && (
+                <View
+                  style={{
+                    backgroundColor: '#FEF3C7',
+                    borderColor: '#FDE68A',
+                    borderWidth: 1,
+                    borderRadius: 12,
+                    padding: 12,
+                    marginTop: 12,
+                  }}
+                >
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: '#92400E', marginBottom: 4 }}>
+                    ⚠️ {outboxItems.filter((m) => m.status === 'queued').length} message(s) waiting in queue
+                  </Text>
+                  <Text style={{ fontSize: 12, color: '#78350F', marginBottom: 10, lineHeight: 16 }}>
+                    Tap below to immediately deliver all pending messages to customer WhatsApp numbers.
+                  </Text>
+                  <TouchableOpacity
+                    style={[
+                      styles.primaryButton,
+                      { backgroundColor: '#16A34A', marginTop: 0 },
+                      processingOutbox && styles.buttonDisabled,
+                    ]}
+                    onPress={handleSendAllQueuedOutbox}
+                    disabled={processingOutbox}
+                    activeOpacity={0.8}
+                  >
+                    {processingOutbox ? (
+                      <ActivityIndicator color="#FFFFFF" size="small" />
+                    ) : (
+                      <Text style={styles.primaryButtonText}>🚀 Dispatch All Queued Messages Now</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              {/* Outbox Items List */}
+              <View style={{ marginTop: 12 }}>
+                {outboxItems.length > 0 ? (
+                  <View style={{ gap: 8 }}>
+                    {outboxItems.map((item) => {
+                      const isQueued = item.status === 'queued';
+                      const isSent = item.status === 'sent';
+                      return (
+                        <View
+                          key={item.id}
+                          style={{
+                            backgroundColor: '#F8FAFC',
+                            borderColor: isQueued ? '#FDE68A' : isSent ? '#BBF7D0' : '#E2E8F0',
+                            borderWidth: 1,
+                            borderRadius: 12,
+                            padding: 12,
+                          }}
+                        >
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <Text style={{ fontSize: 13, fontWeight: '800', color: '#0F172A' }}>
+                              {item.recipient_phone}
+                            </Text>
+                            <View
+                              style={{
+                                backgroundColor: isQueued ? '#FEF3C7' : isSent ? '#DCFCE7' : '#F1F5F9',
+                                paddingHorizontal: 8,
+                                paddingVertical: 3,
+                                borderRadius: 6,
+                              }}
+                            >
+                              <Text
+                                style={{
+                                  fontSize: 11,
+                                  fontWeight: '800',
+                                  color: isQueued ? '#92400E' : isSent ? '#15803D' : '#64748B',
+                                  textTransform: 'uppercase',
+                                }}
+                              >
+                                {item.status}
+                              </Text>
+                            </View>
+                          </View>
+                          <Text style={{ fontSize: 12, color: '#475569', marginTop: 4 }} numberOfLines={2}>
+                            {item.message_text}
+                          </Text>
+                          {isQueued && (
+                            <TouchableOpacity
+                              style={{
+                                alignSelf: 'flex-start',
+                                marginTop: 8,
+                                backgroundColor: '#25D366',
+                                paddingHorizontal: 10,
+                                paddingVertical: 5,
+                                borderRadius: 6,
+                              }}
+                              onPress={() => {
+                                const cleanPhone = item.recipient_phone.replace(/[^0-9]/g, '');
+                                const waUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(item.message_text)}`;
+                                Linking.openURL(waUrl);
+                              }}
+                              activeOpacity={0.8}
+                            >
+                              <Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: '700' }}>
+                                💬 Open in WhatsApp
+                              </Text>
+                            </TouchableOpacity>
+                          )}
+                        </View>
+                      );
+                    })}
+                  </View>
+                ) : (
+                  <Text style={{ fontSize: 13, color: '#64748B', fontStyle: 'italic', paddingVertical: 8 }}>
+                    No messages currently in outbox.
+                  </Text>
+                )}
+              </View>
+            </View>
+
+            {/* Section 3: Test WhatsApp Message Sender */}
+            <View style={styles.card}>
+              <Text style={[styles.cardTitle, { marginBottom: 10 }]}>📲 Send Test WhatsApp</Text>
+              <Text style={styles.inputLabel}>Recipient Phone Number:</Text>
+              <TextInput
+                style={styles.input}
+                value={testPosPhone}
+                onChangeText={setTestPosPhone}
+                placeholder="e.g. +971501234567"
+                placeholderTextColor="#94A3B8"
+                keyboardType="phone-pad"
+              />
+
+              <TouchableOpacity
+                style={[
+                  styles.primaryButton,
+                  testingWhatsApp && styles.buttonDisabled,
+                  { backgroundColor: '#15803D', marginTop: 4 },
+                ]}
+                onPress={handleTestWhatsAppGateway}
+                disabled={testingWhatsApp}
+                activeOpacity={0.8}
+              >
+                {testingWhatsApp ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <Text style={styles.primaryButtonText}>📲 Send Test Message Now</Text>
+                )}
+              </TouchableOpacity>
+
+              {posTestResult && (
+                <View
+                  style={[
+                    styles.testResultBanner,
+                    posTestResult.success ? styles.testResultSuccess : styles.testResultError,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.testResultText,
+                      { color: posTestResult.success ? '#065F46' : '#991B1B' },
+                    ]}
+                  >
+                    {posTestResult.success ? '✓ ' : '⚠️ '}
+                    {posTestResult.message}
+                  </Text>
+                </View>
+              )}
             </View>
           </View>
         )}
@@ -1496,189 +2068,117 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         {/* -------------------------------------------------------- */}
         {activeTab === 'pos' && (
           <View>
-            {/* User Manual & Link WhatsApp Top Action Card */}
-            <View style={[styles.card, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 14, gap: 8 }]}>
+            {/* User Manual & Web POS Action Row */}
+            <View
+              style={[
+                styles.card,
+                { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 14, gap: 10 },
+              ]}
+            >
               <TouchableOpacity
-                style={[
-                  styles.primaryButton,
-                  {
-                    flex: 1,
-                    paddingHorizontal: 12,
-                    paddingVertical: 10,
-                    minHeight: 42,
-                    backgroundColor: waBridgeStatus === 'connected' ? '#16A34A' : '#059669',
-                  },
-                ]}
-                onPress={openWhatsAppLinkerModal}
-                activeOpacity={0.8}
-              >
-                <Text style={[styles.primaryButtonText, { fontSize: 13 }]}>
-                  {waBridgeStatus === 'connected' ? '✓ WhatsApp Linked' : '🔗 Link WhatsApp'}
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.primaryButton, { paddingHorizontal: 14, paddingVertical: 10, minHeight: 42 }]}
+                style={[styles.primaryButton, { flex: 1, paddingHorizontal: 12, paddingVertical: 10, minHeight: 42, marginTop: 0 }]}
                 onPress={() => setPosManualModalVisible(true)}
                 activeOpacity={0.8}
               >
-                <Text style={[styles.primaryButtonText, { fontSize: 13 }]}>📖 User Manual</Text>
+                <Text style={[styles.primaryButtonText, { fontSize: 13 }]}>📖 POS User Manual</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.outlineButton,
+                  { flex: 1, paddingHorizontal: 12, paddingVertical: 10, minHeight: 42, marginTop: 0, marginBottom: 0 },
+                ]}
+                onPress={() => {
+                  const posUrl = `${customerWebBase.replace(/\/+$/, '')}/pos.html?key=${encodeURIComponent(posApiKey)}`;
+                  Linking.openURL(posUrl);
+                }}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.outlineButtonText, { fontSize: 13 }]}>🖥️ Open Web POS</Text>
               </TouchableOpacity>
             </View>
 
-            {/* Automated POS Bill Rules & Minimum Limit Card */}
+            {/* Minimum Bill Amount Rule (COLLAPSIBLE) */}
             <View style={styles.card}>
-              <Text style={[styles.cardTitle, { marginBottom: 10 }]}>⚡ POS & WhatsApp Rules</Text>
-
-              <Text style={styles.inputLabel}>💰 Minimum Bill Amount:</Text>
-              <TextInput
-                style={styles.input}
-                value={minBillAmountInput}
-                onChangeText={(t) => setMinBillAmountInput(t.replace(/[^0-9.]/g, ''))}
-                placeholder="0"
-                placeholderTextColor="#94A3B8"
-                keyboardType="decimal-pad"
-              />
-
-              <Text style={styles.inputLabel}>💬 WhatsApp Instance ID or Gateway URL:</Text>
-              <TextInput
-                style={styles.input}
-                value={whatsappWebhookUrl}
-                onChangeText={setWhatsappWebhookUrl}
-                placeholder="Instance ID (e.g. 7103948123) or https://..."
-                placeholderTextColor="#94A3B8"
-                autoCapitalize="none"
-              />
-
-              <Text style={styles.inputLabel}>🔐 WhatsApp API Token:</Text>
-              <TextInput
-                style={styles.input}
-                value={whatsappApiToken}
-                onChangeText={setWhatsappApiToken}
-                placeholder="API Token"
-                placeholderTextColor="#94A3B8"
-                secureTextEntry
-                autoCapitalize="none"
-              />
-
-              <View style={{ flexDirection: 'row', gap: 10, marginTop: 8 }}>
+              <View style={styles.cardHeaderRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.cardTitle}>💰 Minimum Bill Rule</Text>
+                  <Text style={{ fontSize: 12, color: '#64748B', marginTop: 2 }}>
+                    {shop.min_bill_amount && shop.min_bill_amount > 0
+                      ? `Minimum ${shop.min_bill_amount} AED required per stamp`
+                      : 'No minimum (Any bill earns a stamp)'}
+                  </Text>
+                </View>
                 <TouchableOpacity
-                  style={[styles.primaryButton, { flex: 1 }, savingPosRules && styles.buttonDisabled]}
-                  onPress={handleSavePosRules}
-                  disabled={savingPosRules}
+                  style={styles.smallAddBtn}
+                  onPress={() => setIsConfiguringPosRules(!isConfiguringPosRules)}
                   activeOpacity={0.7}
                 >
-                  {savingPosRules ? (
-                    <ActivityIndicator color="#FFFFFF" size="small" />
-                  ) : (
-                    <Text style={styles.primaryButtonText}>💾 Save Rules</Text>
-                  )}
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.outlineButton, { flex: 1, marginTop: 0, marginBottom: 0, borderColor: '#86EFAC', backgroundColor: '#F0FDF4' }, testingWhatsApp && styles.buttonDisabled]}
-                  onPress={handleTestWhatsAppGateway}
-                  disabled={testingWhatsApp}
-                  activeOpacity={0.7}
-                >
-                  {testingWhatsApp ? (
-                    <ActivityIndicator color="#15803D" size="small" />
-                  ) : (
-                    <Text style={[styles.outlineButtonText, { color: '#15803D' }]}>📲 Test WhatsApp</Text>
-                  )}
+                  <Text style={styles.smallAddBtnText}>{isConfiguringPosRules ? '✕ Close' : '✏️ Configure'}</Text>
                 </TouchableOpacity>
               </View>
-            </View>
 
-            {/* Live POS Billing Terminal Card */}
-            <View style={styles.card}>
-              <Text style={[styles.cardTitle, { marginBottom: 10 }]}>🖥️ Live POS Billing Terminal</Text>
-
-              <View style={{ flexDirection: 'row', gap: 10 }}>
-                <View style={{ flex: 1.4 }}>
-                  <Text style={styles.inputLabel}>Customer Phone:</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={testPosPhone}
-                    onChangeText={setTestPosPhone}
-                    placeholder="+971501234567"
-                    placeholderTextColor="#94A3B8"
-                    keyboardType="phone-pad"
-                  />
+              {!isConfiguringPosRules ? (
+                <View style={{ marginTop: 10 }}>
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      paddingVertical: 8,
+                    }}
+                  >
+                    <Text style={{ fontSize: 13, fontWeight: '600', color: '#64748B' }}>
+                      Required Bill per Stamp:
+                    </Text>
+                    <Text style={{ fontSize: 14, fontWeight: '800', color: '#0F172A' }}>
+                      {minBillAmountInput && parseFloat(minBillAmountInput) > 0
+                        ? `${minBillAmountInput} AED`
+                        : '0 (Any amount)'}
+                    </Text>
+                  </View>
                 </View>
-
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.inputLabel}>Bill Amount:</Text>
+              ) : (
+                <View style={{ marginTop: 12 }}>
+                  <Text style={styles.inputLabel}>Minimum Bill Amount (AED):</Text>
                   <TextInput
                     style={styles.input}
-                    value={testPosAmount}
-                    onChangeText={(t) => setTestPosAmount(t.replace(/[^0-9.]/g, ''))}
-                    placeholder="25.00"
+                    value={minBillAmountInput}
+                    onChangeText={(t) => setMinBillAmountInput(t.replace(/[^0-9.]/g, ''))}
+                    placeholder="0"
                     placeholderTextColor="#94A3B8"
                     keyboardType="decimal-pad"
                   />
-                </View>
-              </View>
+                  <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
+                    <TouchableOpacity
+                      style={[styles.primaryButton, { flex: 1, marginTop: 0 }, savingPosRules && styles.buttonDisabled]}
+                      onPress={async () => {
+                        await handleSavePosRules();
+                        setIsConfiguringPosRules(false);
+                      }}
+                      disabled={savingPosRules}
+                      activeOpacity={0.8}
+                    >
+                      {savingPosRules ? (
+                        <ActivityIndicator color="#FFFFFF" size="small" />
+                      ) : (
+                        <Text style={styles.primaryButtonText}>Save Rule</Text>
+                      )}
+                    </TouchableOpacity>
 
-              <TouchableOpacity
-                style={[styles.primaryButton, testPosLoading && styles.buttonDisabled, { marginTop: 4 }]}
-                onPress={handleTestWebhook}
-                disabled={testPosLoading}
-                activeOpacity={0.7}
-              >
-                {testPosLoading ? (
-                  <ActivityIndicator color="#FFFFFF" size="small" />
-                ) : (
-                  <Text style={styles.primaryButtonText}>⚡ Punch Bill</Text>
-                )}
-              </TouchableOpacity>
-
-              <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
-                <TouchableOpacity
-                  style={[styles.outlineButton, { flex: 1, marginTop: 0, marginBottom: 0, minHeight: 42, paddingVertical: 8 }]}
-                  onPress={() => {
-                    const posUrl = `${customerWebBase.replace(/\/+$/, '')}/pos.html?key=${encodeURIComponent(posApiKey)}`;
-                    Linking.openURL(posUrl);
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.outlineButtonText, { fontSize: 13 }]}>🖥️ Open Web POS</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.outlineButton, { flex: 1, marginTop: 0, marginBottom: 0, minHeight: 42, paddingVertical: 8 }]}
-                  onPress={() => {
-                    const posUrl = `${customerWebBase.replace(/\/+$/, '')}/pos.html?key=${encodeURIComponent(posApiKey)}`;
-                    Clipboard.setStringAsync(posUrl);
-                    Alert.alert('Copied!', 'Web POS Terminal link copied to clipboard.');
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.outlineButtonText, { fontSize: 13 }]}>📋 Copy POS Link</Text>
-                </TouchableOpacity>
-              </View>
-
-              {posTestResult && (
-                <View
-                  style={[
-                    styles.testResultBanner,
-                    posTestResult.success ? styles.testResultSuccess : styles.testResultError,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.testResultText,
-                      { color: posTestResult.success ? '#065F46' : '#991B1B' },
-                    ]}
-                  >
-                    {posTestResult.success ? '✓ ' : '⚠️ '}
-                    {posTestResult.message}
-                  </Text>
+                    <TouchableOpacity
+                      style={[styles.outlineButton, { flex: 0.6, marginTop: 0, marginBottom: 0 }]}
+                      onPress={() => setIsConfiguringPosRules(false)}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.outlineButtonText}>Cancel</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
               )}
             </View>
 
-            {/* Terminal Pairing Code Card */}
+            {/* Counter Terminal Pairing Code Card */}
             <View style={styles.card}>
               <Text style={[styles.cardTitle, { marginBottom: 10 }]}>📱 Counter Terminal Code</Text>
 
@@ -1716,7 +2216,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               </View>
             </View>
 
-            {/* Live POS API Key Card */}
+            {/* Secret POS API Key Card */}
             <View style={styles.card}>
               <Text style={[styles.cardTitle, { marginBottom: 10 }]}>🔑 Secret POS API Key</Text>
 
@@ -1742,7 +2242,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
               <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
                 <TouchableOpacity
-                  style={[styles.primaryButton, { flex: 1, minHeight: 44, paddingVertical: 10 }]}
+                  style={[styles.primaryButton, { flex: 1, minHeight: 44, paddingVertical: 10, marginTop: 0 }]}
                   onPress={() => {
                     if (posApiKey) {
                       Clipboard.setStringAsync(posApiKey);
@@ -1755,7 +2255,10 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={[styles.outlineButton, { flex: 0.9, marginTop: 0, marginBottom: 0, minHeight: 44, paddingVertical: 10 }]}
+                  style={[
+                    styles.outlineButton,
+                    { flex: 0.9, marginTop: 0, marginBottom: 0, minHeight: 44, paddingVertical: 10 },
+                  ]}
                   onPress={handleRegenerateKey}
                   disabled={posLoading}
                   activeOpacity={0.7}
@@ -1763,6 +2266,104 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                   <Text style={styles.outlineButtonText}>🔄 Regenerate</Text>
                 </TouchableOpacity>
               </View>
+            </View>
+
+            {/* Live POS Bill Terminal Simulator (COLLAPSIBLE) */}
+            <View style={styles.card}>
+              <View style={styles.cardHeaderRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.cardTitle}>⚡ POS Bill Punch Simulator</Text>
+                  <Text style={{ fontSize: 12, color: '#64748B', marginTop: 2 }}>
+                    Test instant bill stamping directly inside the app
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.smallAddBtn}
+                  onPress={() => setIsSimulatingPos(!isSimulatingPos)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.smallAddBtnText}>{isSimulatingPos ? '✕ Close' : '▶️ Open Simulator'}</Text>
+                </TouchableOpacity>
+              </View>
+
+              {isSimulatingPos && (
+                <View style={{ marginTop: 12 }}>
+                  <View style={{ flexDirection: 'row', gap: 10 }}>
+                    <View style={{ flex: 1.4 }}>
+                      <Text style={styles.inputLabel}>Customer Phone:</Text>
+                      <TextInput
+                        style={styles.input}
+                        value={testPosPhone}
+                        onChangeText={setTestPosPhone}
+                        placeholder="+971501234567"
+                        placeholderTextColor="#94A3B8"
+                        keyboardType="phone-pad"
+                      />
+                    </View>
+
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.inputLabel}>Bill Amount:</Text>
+                      <TextInput
+                        style={styles.input}
+                        value={testPosAmount}
+                        onChangeText={(t) => setTestPosAmount(t.replace(/[^0-9.]/g, ''))}
+                        placeholder="25.00"
+                        placeholderTextColor="#94A3B8"
+                        keyboardType="decimal-pad"
+                      />
+                    </View>
+                  </View>
+
+                  <TouchableOpacity
+                    style={[styles.primaryButton, testPosLoading && styles.buttonDisabled, { marginTop: 4 }]}
+                    onPress={handleTestWebhook}
+                    disabled={testPosLoading}
+                    activeOpacity={0.7}
+                  >
+                    {testPosLoading ? (
+                      <ActivityIndicator color="#FFFFFF" size="small" />
+                    ) : (
+                      <Text style={styles.primaryButtonText}>⚡ Punch Bill</Text>
+                    )}
+                  </TouchableOpacity>
+
+                  <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
+                    <TouchableOpacity
+                      style={[
+                        styles.outlineButton,
+                        { flex: 1, marginTop: 0, marginBottom: 0, minHeight: 42, paddingVertical: 8 },
+                      ]}
+                      onPress={() => {
+                        const posUrl = `${customerWebBase.replace(/\/+$/, '')}/pos.html?key=${encodeURIComponent(posApiKey)}`;
+                        Clipboard.setStringAsync(posUrl);
+                        Alert.alert('Copied!', 'Web POS Terminal link copied to clipboard.');
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.outlineButtonText, { fontSize: 13 }]}>📋 Copy POS Link</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {posTestResult && (
+                    <View
+                      style={[
+                        styles.testResultBanner,
+                        posTestResult.success ? styles.testResultSuccess : styles.testResultError,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.testResultText,
+                          { color: posTestResult.success ? '#065F46' : '#991B1B' },
+                        ]}
+                      >
+                        {posTestResult.success ? '✓ ' : '⚠️ '}
+                        {posTestResult.message}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              )}
             </View>
 
             {/* Webhook & REST API Documentation Card */}

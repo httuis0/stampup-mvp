@@ -33,6 +33,7 @@ import {
   cleanPhoneKey,
 } from '../utils/customerNotes';
 import { sendViaWhatsAppBridge } from '../utils/whatsappBridge';
+import { relayWhatsAppOutboxMessage } from '../utils/posIntegrations';
 import { playNotificationFeedback } from '../utils/feedback';
 import type { Shop, Customer } from '../types';
 
@@ -74,17 +75,40 @@ const getInitials = (name?: string | null, phone?: string): string => {
 const customerWebBase =
   process.env.EXPO_PUBLIC_CUSTOMER_WEB_URL || 'https://stampup-cards.vercel.app';
 
-const sendWhatsApp = (phone: string, text: string) => {
-  sendViaWhatsAppBridge(phone, text);
-  playNotificationFeedback();
-};
-
 export const CustomersScreen: React.FC<CustomersScreenProps> = ({ shop }) => {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'ready' | 'inactive'>('all');
+
+  const sendWhatsApp = async (phone: string, text: string) => {
+    const cleanDigits = phone.replace(/[^0-9]/g, '');
+    if (!cleanDigits) return;
+
+    if (shop.whatsapp_webhook_url) {
+      try {
+        const res = await relayWhatsAppOutboxMessage(
+          shop.whatsapp_webhook_url,
+          shop.whatsapp_api_token,
+          phone,
+          text
+        );
+        if (res.ok) {
+          playNotificationFeedback();
+          Alert.alert('WhatsApp Sent', `Automated WhatsApp sent to ${formatPhoneDisplay(phone)}!`);
+          return;
+        }
+      } catch (e) {}
+    }
+
+    // Direct fallback so messages NEVER fail silently
+    const encoded = encodeURIComponent(text);
+    const url = `https://wa.me/${cleanDigits}?text=${encoded}`;
+    Linking.openURL(url).catch(() => {
+      Alert.alert('WhatsApp Error', 'Could not open WhatsApp on this device.');
+    });
+  };
 
   // Revenue & Automated WhatsApp Analytics State
   const [totalBillRevenue, setTotalBillRevenue] = useState<number>(0);
@@ -372,16 +396,35 @@ export const CustomersScreen: React.FC<CustomersScreenProps> = ({ shop }) => {
   }, [customers, filterStatus, searchQuery, shop.stamps_required]);
 
   // 1-Tap Automated Win-Back Campaign for Inactive Customers
-  const handleWinBackAllInactive = () => {
+  const handleWinBackAllInactive = async () => {
     const targets = filteredCustomers.slice(0, 25);
     if (targets.length === 0) return;
-    targets.forEach((cust) => {
-      const msg = getCampaignMessage('we_miss_you', cust);
-      sendViaWhatsAppBridge(cust.phone, msg);
-    });
-    playNotificationFeedback();
-    setWinBackSentToast(`✅ Queued ${targets.length} Win-Back WhatsApp message${targets.length > 1 ? 's' : ''}!`);
-    setTimeout(() => setWinBackSentToast(null), 4000);
+
+    if (shop.whatsapp_webhook_url) {
+      let sentCount = 0;
+      for (const cust of targets) {
+        const msg = getCampaignMessage('we_miss_you', cust);
+        const res = await relayWhatsAppOutboxMessage(
+          shop.whatsapp_webhook_url,
+          shop.whatsapp_api_token,
+          cust.phone,
+          msg
+        );
+        if (res.ok) sentCount++;
+      }
+      playNotificationFeedback();
+      setWinBackSentToast(`✅ Dispatched ${sentCount} Win-Back WhatsApp message${sentCount > 1 ? 's' : ''}!`);
+      setTimeout(() => setWinBackSentToast(null), 4000);
+    } else {
+      const firstCust = targets[0];
+      const msg = getCampaignMessage('we_miss_you', firstCust);
+      const cleanDigits = firstCust.phone.replace(/[^0-9]/g, '');
+      Linking.openURL(`https://wa.me/${cleanDigits}?text=${encodeURIComponent(msg)}`);
+      Alert.alert(
+        'WhatsApp Automation',
+        'Opened first customer in WhatsApp! To send all campaigns 100% automatically in the background, configure your WhatsApp Gateway in Settings > WhatsApp.'
+      );
+    }
   };
 
   // Fetch date-wise customer activity across last 90 days (3 months)
@@ -1645,17 +1688,37 @@ export const CustomersScreen: React.FC<CustomersScreenProps> = ({ shop }) => {
                     paddingVertical: 5,
                     borderRadius: 8,
                   }}
-                  onPress={() => {
+                  onPress={async () => {
                     const targets = campaignMatchingCustomers.slice(0, 25);
-                    targets.forEach((cust) => {
-                      const msg = getCampaignMessage(selectedCampaignType, cust);
-                      sendViaWhatsAppBridge(cust.phone, msg);
-                    });
-                    playNotificationFeedback();
-                    Alert.alert(
-                      'WhatsApp Queued',
-                      `Queued ${targets.length} automated WhatsApp message${targets.length > 1 ? 's' : ''}!`
-                    );
+                    if (targets.length === 0) return;
+
+                    if (shop.whatsapp_webhook_url) {
+                      let sentCount = 0;
+                      for (const cust of targets) {
+                        const msg = getCampaignMessage(selectedCampaignType, cust);
+                        const res = await relayWhatsAppOutboxMessage(
+                          shop.whatsapp_webhook_url,
+                          shop.whatsapp_api_token,
+                          cust.phone,
+                          msg
+                        );
+                        if (res.ok) sentCount++;
+                      }
+                      playNotificationFeedback();
+                      Alert.alert(
+                        'Campaign Dispatched',
+                        `Dispatched ${sentCount} automated WhatsApp campaign message${sentCount > 1 ? 's' : ''} in the background!`
+                      );
+                    } else {
+                      const firstCust = targets[0];
+                      const msg = getCampaignMessage(selectedCampaignType, firstCust);
+                      const cleanDigits = firstCust.phone.replace(/[^0-9]/g, '');
+                      Linking.openURL(`https://wa.me/${cleanDigits}?text=${encodeURIComponent(msg)}`);
+                      Alert.alert(
+                        'WhatsApp Gateway Notice',
+                        'Opened first customer in WhatsApp! To dispatch bulk campaigns 100% automatically in the background, set up your WhatsApp Gateway in Settings > WhatsApp.'
+                      );
+                    }
                   }}
                   activeOpacity={0.8}
                 >
