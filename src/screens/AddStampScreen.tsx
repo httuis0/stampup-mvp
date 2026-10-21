@@ -155,8 +155,10 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({
         message = `☕ *${shop.name} Loyalty Stamp Added!* \n\nYou now have *${currentStamps} of ${stampsRequired} stamps* ⭐. \n🎯 Only *${remaining} more stamp${remaining === 1 ? '' : 's'}* to earn a free *${shop.reward_text}*! \n\nView your live digital card: \n${cardUrl}`;
       }
 
-      // 1. Dispatch into Supabase Background Outbox Queue (NO app switching)
+      // 1. Queue in Supabase outbox — the server (pg_net) sends it immediately from the
+      //    shop's own connected WhatsApp number when a gateway is configured.
       let outboxId: string | undefined;
+      let serverSent = false;
       try {
         const { data: rpcData } = await supabase.rpc('dispatch_whatsapp_message', {
           p_shop_id: shop.id,
@@ -164,37 +166,53 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({
           p_text: message,
         });
         outboxId = rpcData?.outbox_id;
+        serverSent = rpcData?.dispatched_server_side === true;
         if (outboxId) {
           dispatchedOutboxIdsRef.current.add(outboxId);
         }
-        console.log('Background WhatsApp notification queued for:', cleanDigits);
       } catch (rpcErr) {
         console.warn('Background WhatsApp RPC error:', rpcErr);
       }
 
-      // 2. Built-in Background WhatsApp Web Auto-Sender Bridge (zero external API required)
-      sendViaWhatsAppBridge(targetPhone, message, outboxId);
-
-      // 3. If a WhatsApp Cloud Gateway / Webhook is also configured, dispatch directly in background
-      if (shop.whatsapp_webhook_url) {
-        relayWhatsAppOutboxMessage(
+      // 2. If the server could not send but a gateway exists, retry directly from the device
+      let sent = serverSent;
+      let failReason = '';
+      if (!sent && shop.whatsapp_webhook_url) {
+        const res = await relayWhatsAppOutboxMessage(
           shop.whatsapp_webhook_url,
           shop.whatsapp_api_token,
           targetPhone,
           message,
           outboxId
         );
+        sent = res.ok;
+        failReason = res.error || '';
+      } else if (!sent && waBridgeStatus === 'connected') {
+        // 3. Optional built-in WhatsApp Web bridge (only when actually linked)
+        sendViaWhatsAppBridge(targetPhone, message, outboxId);
+        sent = true;
       }
 
-      // 4. In-app confirmation notification
-      addNotification({
-        shopId: shop.id,
-        type: 'stamp',
-        title: '💬 WhatsApp Sent in Background',
-        message: `Background WhatsApp sent to ${formatPhoneForDisplay(targetPhone)} (${currentStamps}/${stampsRequired} stamps).`,
-        metadata: { phone: targetPhone, stamps: currentStamps },
-      });
-      // NOTICE: No Linking.openURL call here! Cashier flow remains 100% uninterrupted.
+      // 4. Honest in-app notification — only say "sent" when it really was
+      if (sent) {
+        addNotification({
+          shopId: shop.id,
+          type: 'stamp',
+          title: '💬 WhatsApp Sent',
+          message: `WhatsApp sent to ${formatPhoneForDisplay(targetPhone)} (${currentStamps}/${stampsRequired} stamps).`,
+          metadata: { phone: targetPhone, stamps: currentStamps },
+        });
+      } else {
+        addNotification({
+          shopId: shop.id,
+          type: 'stamp',
+          title: '⚠️ WhatsApp Not Sent',
+          message: shop.whatsapp_webhook_url
+            ? `Could not send to ${formatPhoneForDisplay(targetPhone)}. ${failReason}`.trim()
+            : `Message to ${formatPhoneForDisplay(targetPhone)} is waiting. Connect your shop WhatsApp in Settings › WhatsApp.`,
+          metadata: { phone: targetPhone, stamps: currentStamps },
+        });
+      }
     } catch (e) {
       console.warn('Auto WhatsApp dispatch failed:', e);
     }
@@ -217,18 +235,15 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({
           fetchTodayStamps();
           fetchRecentCustomers();
           if (row && row.status === 'queued') {
-            if (!dispatchedOutboxIdsRef.current.has(row.id)) {
+            // The server (pg_net) already sends via the shop's gateway — only use the
+            // device WhatsApp Web bridge when no gateway exists and the bridge is linked.
+            if (
+              !shop.whatsapp_webhook_url &&
+              waBridgeStatus === 'connected' &&
+              !dispatchedOutboxIdsRef.current.has(row.id)
+            ) {
               dispatchedOutboxIdsRef.current.add(row.id);
               sendViaWhatsAppBridge(row.recipient_phone, row.message_text, row.id);
-            }
-            if (shop.whatsapp_webhook_url) {
-              relayWhatsAppOutboxMessage(
-                shop.whatsapp_webhook_url,
-                shop.whatsapp_api_token,
-                row.recipient_phone,
-                row.message_text,
-                row.id
-              );
             }
           }
         }
@@ -238,7 +253,7 @@ export const AddStampScreen: React.FC<AddStampScreenProps> = ({
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [shop.id, shop.whatsapp_webhook_url, shop.whatsapp_api_token]);
+  }, [shop.id, shop.whatsapp_webhook_url, waBridgeStatus]);
 
   // Local notifications for modal fallback
   const [localNotifications, setLocalNotifications] = useState<AppNotification[]>([]);

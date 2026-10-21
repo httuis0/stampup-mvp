@@ -129,6 +129,8 @@ export async function relayWhatsAppOutboxMessage(
         body: JSON.stringify({
           chatId: `${cleanDigits}@c.us`,
           message: messageText,
+          // Send as the shop's own plain message — no third-party link preview card / logo
+          linkPreview: false,
         }),
       });
     } else if (targetUrl.includes('ultramsg.com')) {
@@ -157,7 +159,7 @@ export async function relayWhatsAppOutboxMessage(
           messaging_product: 'whatsapp',
           to: cleanDigits,
           type: 'text',
-          text: { body: messageText },
+          text: { body: messageText, preview_url: false },
         }),
       });
     } else {

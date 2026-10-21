@@ -521,6 +521,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
     setProcessingOutbox(true);
     let sentCount = 0;
+    let lastError = '';
     try {
       for (const msg of queued) {
         const res = await relayWhatsAppOutboxMessage(
@@ -532,14 +533,16 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         );
         if (res.ok) {
           sentCount++;
-          await supabase
-            .from('whatsapp_outbox')
-            .update({ status: 'sent', sent_at: new Date().toISOString() })
-            .eq('id', msg.id);
+        } else {
+          lastError = res.error || 'Gateway error';
         }
       }
-      playNotificationFeedback();
-      setSuccessMessage(`Dispatched ${sentCount} queued WhatsApp message${sentCount > 1 ? 's' : ''}!`);
+      if (sentCount > 0) playNotificationFeedback();
+      if (sentCount === queued.length) {
+        setSuccessMessage(`Sent ${sentCount} WhatsApp message${sentCount > 1 ? 's' : ''}.`);
+      } else {
+        setErrorMessage(`Sent ${sentCount} of ${queued.length}. Last error: ${lastError}`);
+      }
       await fetchOutboxMessages();
     } catch (e: any) {
       setErrorMessage(e?.message || 'Failed to dispatch queued messages.');
@@ -593,19 +596,14 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
       return;
     }
 
-    const testMessage = `✅ *${shop.name} Automated WhatsApp Connected!*\n\nYour StampUp POS & background WhatsApp automation is live! 🎉\n\nDigital Card: ${customerLink}`;
+    const testMessage = `✅ *${shop.name}*\n\nThis is a test message from ${shop.name}. WhatsApp messages to our customers are now connected! 🎉`;
     const finalGatewayUrl = buildNormalizedGatewayUrl(whatsappWebhookUrl, whatsappApiToken);
 
     if (!finalGatewayUrl) {
-      if (waBridgeStatus !== 'connected') {
-        openWhatsAppLinkerModal();
-        return;
-      }
-      sendViaWhatsAppBridge(targetPhone, testMessage);
-      playNotificationFeedback();
+      setIsConfiguringWhatsApp(true);
       setPosTestResult({
-        success: true,
-        message: `✅ Background WhatsApp sending to ${targetPhone}!`,
+        success: false,
+        message: 'Not sent: connect your shop WhatsApp first (Gateway Configuration above).',
       });
       return;
     }
@@ -713,18 +711,20 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
       } else if (data?.status === 'ok' || data?.status === 'card_full') {
         playStampFeedback();
 
-        let waStatusText = 'Queued in Outbox';
-        if (whatsappWebhookUrl.trim() && data.whatsapp_message) {
+        let waStatusText = 'Not sent (connect shop WhatsApp in WhatsApp tab)';
+        if (data.whatsapp_dispatched_server_side) {
+          waStatusText = 'Sent from shop WhatsApp';
+        } else if (whatsappWebhookUrl.trim() && data.whatsapp_message) {
           const waRes = await relayWhatsAppOutboxMessage(
-            whatsappWebhookUrl,
+            buildNormalizedGatewayUrl(whatsappWebhookUrl, whatsappApiToken),
             whatsappApiToken,
             data.phone || testPosPhone.trim(),
             data.whatsapp_message,
             data.outbox_id
           );
           waStatusText = waRes.ok
-            ? 'Sent via Background WhatsApp Gateway'
-            : `Gateway Warning: ${waRes.error || 'Check Gateway URL'}`;
+            ? 'Sent from shop WhatsApp'
+            : `Not sent: ${waRes.error || 'Check gateway'}`;
         }
 
         setPosTestResult({
